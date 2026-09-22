@@ -67,9 +67,14 @@ export async function requestPasswordReset(formData: FormData) {
   const parsed = forgotPasswordSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (!appUrl) {
+    return { error: "Server misconfigured: NEXT_PUBLIC_APP_URL is not set." };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/reset-password`,
+    redirectTo: `${appUrl}/reset-password`,
   });
   if (error) return { error: error.message };
 
