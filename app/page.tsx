@@ -2,7 +2,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-warm-white text-navy flex items-center justify-center p-8">
       <div className="max-w-2xl text-center space-y-4">
-        <h1 className="text-4xl font-sans font-bold text-navy">
+        <h1 className="text-4xl font-bold text-navy">
           Wabs Car Rental
         </h1>
         <p className="text-text-muted-wabs">
