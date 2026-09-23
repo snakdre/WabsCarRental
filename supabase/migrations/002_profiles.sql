@@ -16,11 +16,11 @@ CREATE TABLE profiles (
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO profiles (id) VALUES (NEW.id);
-  INSERT INTO roles (user_id, role) VALUES (NEW.id, 'customer');
+  INSERT INTO public.profiles (id) VALUES (NEW.id);
+  INSERT INTO public.roles (user_id, role) VALUES (NEW.id, 'customer');
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
