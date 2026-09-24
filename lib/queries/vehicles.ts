@@ -56,7 +56,10 @@ export type VehicleDetail = {
 
 const CARD_COLUMNS = "id, make, model, trim, year, category, daily_price, is_featured";
 
-async function attachCovers(rows: any[]): Promise<VehicleCardData[]> {
+type CardRow = Omit<VehicleCardData, "cover_url" | "cover_alt">;
+type CoverRow = { vehicle_id: string; url: string; alt_text: string | null };
+
+async function attachCovers(rows: CardRow[]): Promise<VehicleCardData[]> {
   if (rows.length === 0) return [];
   const supabase = await createClient();
   const ids = rows.map((r) => r.id);
@@ -66,7 +69,7 @@ async function attachCovers(rows: any[]): Promise<VehicleCardData[]> {
     .in("vehicle_id", ids)
     .eq("is_cover", true);
   const byId = new Map<string, { url: string; alt_text: string | null }>();
-  (covers ?? []).forEach((c: any) => byId.set(c.vehicle_id, { url: c.url, alt_text: c.alt_text }));
+  (covers ?? []).forEach((c: CoverRow) => byId.set(c.vehicle_id, { url: c.url, alt_text: c.alt_text }));
   return rows.map((r) => ({
     ...r,
     cover_url: byId.get(r.id)?.url ?? null,
@@ -83,7 +86,7 @@ export async function getFeaturedVehicles(limit = 4): Promise<VehicleCardData[]>
     .eq("is_featured", true)
     .order("created_at", { ascending: false })
     .limit(limit);
-  return attachCovers(data ?? []);
+  return attachCovers((data ?? []) as unknown as CardRow[]);
 }
 
 export async function listVehicles(params: BrowseParams): Promise<VehicleCardData[]> {
@@ -94,7 +97,7 @@ export async function listVehicles(params: BrowseParams): Promise<VehicleCardDat
   else if (params.sort === "price_desc") query = query.order("daily_price", { ascending: false });
   else query = query.order("is_featured", { ascending: false }).order("created_at", { ascending: false });
   const { data } = await query;
-  return attachCovers(data ?? []);
+  return attachCovers((data ?? []) as unknown as CardRow[]);
 }
 
 export async function getVehicleById(id: string): Promise<VehicleDetail | null> {
@@ -109,9 +112,9 @@ export async function getVehicleById(id: string): Promise<VehicleDetail | null> 
   const v = vehicleRes.data;
   if (v.status === "draft" || v.status === "inactive") return null;
   return {
-    vehicle: v,
+    vehicle: v as VehicleDetail["vehicle"],
     images: imagesRes.data ?? [],
-    features: (featuresRes.data ?? []).map((f: any) => f.feature),
+    features: (featuresRes.data ?? []).map((f: { feature: string }) => f.feature),
     location: locationsRes.data?.[0] ?? null,
   };
 }
