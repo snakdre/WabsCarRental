@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { getSession } from "@/lib/utils/session";
+import { getCurrentUser } from "@/lib/utils/session";
 import { HeaderAccountMenu } from "./header-account-menu";
 import { HeaderMobileMenu } from "./header-mobile-menu";
 
 export async function CustomerHeader() {
-  const user = await getSession();
+  const user = await getCurrentUser();
   const authed = Boolean(user);
 
   return (

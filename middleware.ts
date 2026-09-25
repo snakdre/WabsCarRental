@@ -19,7 +19,7 @@ export async function middleware(request: NextRequest) {
   // Checkout: require authentication
   if (path.startsWith("/checkout") && !user) {
     const redirectUrl = new URL("/login", request.url);
-    redirectUrl.searchParams.set("redirect", path);
+    redirectUrl.searchParams.set("redirect", path + request.nextUrl.search);
     return NextResponse.redirect(redirectUrl);
   }
 

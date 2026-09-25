@@ -63,11 +63,12 @@ async function attachCovers(rows: CardRow[]): Promise<VehicleCardData[]> {
   if (rows.length === 0) return [];
   const supabase = await createClient();
   const ids = rows.map((r) => r.id);
-  const { data: covers } = await supabase
+  const { data: covers, error } = await supabase
     .from("vehicle_images")
     .select("vehicle_id, url, alt_text")
     .in("vehicle_id", ids)
     .eq("is_cover", true);
+  if (error) throw error;
   const byId = new Map<string, { url: string; alt_text: string | null }>();
   (covers ?? []).forEach((c: CoverRow) => byId.set(c.vehicle_id, { url: c.url, alt_text: c.alt_text }));
   return rows.map((r) => ({
@@ -79,13 +80,14 @@ async function attachCovers(rows: CardRow[]): Promise<VehicleCardData[]> {
 
 export async function getFeaturedVehicles(limit = 4): Promise<VehicleCardData[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("vehicles")
     .select(CARD_COLUMNS)
     .eq("status", "available")
     .eq("is_featured", true)
     .order("created_at", { ascending: false })
     .limit(limit);
+  if (error) throw error;
   return attachCovers((data ?? []) as unknown as CardRow[]);
 }
 
@@ -96,11 +98,15 @@ export async function listVehicles(params: BrowseParams): Promise<VehicleCardDat
   if (params.sort === "price_asc") query = query.order("daily_price", { ascending: true });
   else if (params.sort === "price_desc") query = query.order("daily_price", { ascending: false });
   else query = query.order("is_featured", { ascending: false }).order("created_at", { ascending: false });
-  const { data } = await query;
+  const { data, error } = await query;
+  if (error) throw error;
   return attachCovers((data ?? []) as unknown as CardRow[]);
 }
 
 export async function getVehicleById(id: string): Promise<VehicleDetail | null> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return null;
+  }
   const supabase = await createClient();
   const [vehicleRes, imagesRes, featuresRes, locationsRes] = await Promise.all([
     supabase.from("vehicles").select("*").eq("id", id).maybeSingle(),
@@ -108,6 +114,10 @@ export async function getVehicleById(id: string): Promise<VehicleDetail | null> 
     supabase.from("vehicle_features").select("feature").eq("vehicle_id", id),
     supabase.from("vehicle_locations").select("name, address, city, state, zip, delivery_available, delivery_fee").eq("vehicle_id", id).limit(1),
   ]);
+  if (vehicleRes.error) throw vehicleRes.error;
+  if (imagesRes.error) throw imagesRes.error;
+  if (featuresRes.error) throw featuresRes.error;
+  if (locationsRes.error) throw locationsRes.error;
   if (!vehicleRes.data) return null;
   const v = vehicleRes.data;
   if (v.status === "draft" || v.status === "inactive") return null;
