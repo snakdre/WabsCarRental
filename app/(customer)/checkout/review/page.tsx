@@ -3,7 +3,7 @@ import { StepIndicator } from "@/components/customer/checkout/step-indicator";
 import { BackLink } from "@/components/customer/checkout/back-link";
 import { BookingSummaryCard } from "@/components/customer/checkout/booking-summary-card";
 import { ReviewSummary } from "@/components/customer/checkout/review-summary";
-import { createDraftBooking } from "@/lib/actions/checkout";
+import { ReviewSubmitForm } from "@/components/customer/checkout/review-submit-form";
 
 const REQUIRED = [
   "vehicle","pickup","return","pickup_method",
@@ -26,6 +26,9 @@ export default async function CheckoutReviewPage({
   const extras = sp.extras ? JSON.parse(sp.extras) as { extra_id: string; quantity: number }[] : [];
   const backParams = new URLSearchParams();
   Object.entries(sp).forEach(([k, v]) => { if (typeof v === "string") backParams.set(k, v); });
+
+  const hiddenParams: Record<string, string> = {};
+  Object.entries(sp).forEach(([k, v]) => { if (typeof v === "string") hiddenParams[k] = v; });
 
   return (
     <div>
@@ -57,26 +60,7 @@ export default async function CheckoutReviewPage({
             promoCode={sp.promo_code ?? null}
           />
 
-          <form
-            action={async (fd: FormData) => {
-              "use server";
-              await createDraftBooking(fd);
-            }}
-            className="mt-6 space-y-4"
-          >
-            {Object.entries(sp).map(([k, v]) => (
-              typeof v === "string"
-                ? <input key={k} type="hidden" name={k === "return" ? "return_date" : k === "pickup" ? "pickup_date" : k === "vehicle" ? "vehicle_id" : k} value={v} />
-                : null
-            ))}
-            <label className="flex items-start gap-2 text-sm text-navy">
-              <input type="checkbox" name="terms_accepted" required className="mt-1" />
-              <span>I agree to the rental terms and cancellation policy.</span>
-            </label>
-            <button type="submit" className="bg-gold hover:bg-gold-muted text-deep font-semibold px-6 py-3 rounded">
-              Confirm &amp; continue to payment
-            </button>
-          </form>
+          <ReviewSubmitForm hidden={hiddenParams} />
         </div>
         <BookingSummaryCard vehicleId={sp.vehicle!} />
       </div>
