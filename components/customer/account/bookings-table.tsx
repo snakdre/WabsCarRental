@@ -1,18 +1,7 @@
 import Link from "next/link";
 import { listMyBookings } from "@/lib/queries/bookings";
 import { formatMoney } from "@/lib/utils/format";
-
-const STATUS_STYLE: Record<string, string> = {
-  pending: "bg-gray-100 text-gray-700",
-  awaiting_payment: "bg-gray-100 text-gray-700",
-  confirmed: "bg-gold/20 text-gold-muted",
-  ready_for_pickup: "bg-blue-100 text-blue-700",
-  active: "bg-green-100 text-green-700",
-  completed: "bg-navy/10 text-navy",
-  cancelled: "bg-red-100 text-red-700",
-  rejected: "bg-red-100 text-red-700",
-  refunded: "bg-yellow-100 text-yellow-700",
-};
+import { StatusPill } from "@/components/management/bookings/status-pill";
 
 export async function BookingsTable() {
   const bookings = await listMyBookings();
@@ -50,9 +39,7 @@ export async function BookingsTable() {
               <td className="px-4 py-3 text-navy">{b.pickup_date.slice(0, 10)}</td>
               <td className="px-4 py-3 text-navy">{b.return_date.slice(0, 10)}</td>
               <td className="px-4 py-3">
-                <span className={`text-xs px-2 py-1 rounded font-medium ${STATUS_STYLE[b.status] ?? "bg-gray-100 text-gray-700"}`}>
-                  {b.status.replace(/_/g, " ")}
-                </span>
+                <StatusPill status={b.status} />
               </td>
               <td className="px-4 py-3 text-right font-semibold text-navy">{formatMoney(Number(b.total_amount))}</td>
             </tr>
