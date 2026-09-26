@@ -8,6 +8,19 @@ import { generateBookingReference } from "@/lib/booking-reference";
 import { paymentSchema } from "@/lib/validators/checkout";
 import { z } from "zod";
 
+function luhn(num: string): boolean {
+  const digits = num.replace(/\D/g, "");
+  if (digits.length < 13) return false;
+  let sum = 0, dbl = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let d = parseInt(digits[i], 10);
+    if (dbl) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+    dbl = !dbl;
+  }
+  return sum % 10 === 0;
+}
+
 // Composite schema for createDraftBooking (mirrors the URL params carried
 // from step 1-3 plus terms_accepted on step 4).
 const createDraftSchema = z.object({
@@ -59,6 +72,10 @@ export async function createDraftBooking(formData: FormData) {
   const d = parsed.data;
 
   // Business rules
+  const todayISO = new Date().toISOString().slice(0, 10);
+  if (d.pickup_date < todayISO) {
+    return { error: "Pickup date must be in the future.", field: "pickup_date" };
+  }
   if (computeAgeAt(d.driver_dob, d.pickup_date) < 25) {
     return { error: "Driver must be at least 25 years old at pickup.", field: "driver_dob" };
   }
@@ -189,6 +206,10 @@ export async function confirmPayment(formData: FormData) {
   if (!parsed.success) {
     const first = parsed.error.issues[0];
     return { error: first.message, field: first.path.join(".") };
+  }
+
+  if (!luhn(raw.card_number)) {
+    return { error: "Invalid card number.", field: "card_number" };
   }
 
   const supabase = await createClient();

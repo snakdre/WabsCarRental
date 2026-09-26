@@ -23,7 +23,10 @@ export default async function CheckoutReviewPage({
     if (!sp[k]) redirect(`/checkout/dates${sp.vehicle ? `?vehicle=${encodeURIComponent(sp.vehicle)}` : ""}`);
   }
 
-  const extras = sp.extras ? JSON.parse(sp.extras) as { extra_id: string; quantity: number }[] : [];
+  let extras: { extra_id: string; quantity: number }[] = [];
+  if (sp.extras) {
+    try { extras = JSON.parse(sp.extras); } catch { extras = []; }
+  }
   const backParams = new URLSearchParams();
   Object.entries(sp).forEach(([k, v]) => { if (typeof v === "string") backParams.set(k, v); });
 

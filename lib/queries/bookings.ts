@@ -35,9 +35,12 @@ export async function getBookingByRef(ref: string): Promise<BookingRow | null> {
 
 export async function listMyBookings(): Promise<BookingListItem[]> {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
   const { data, error } = await supabase
     .from("bookings")
     .select("*, vehicles(make, model, year)")
+    .eq("customer_id", user.id)
     .order("created_at", { ascending: false });
   if (error) throw error;
   type Row = BookingRow & { vehicles: { make: string; model: string; year: number } | null };
