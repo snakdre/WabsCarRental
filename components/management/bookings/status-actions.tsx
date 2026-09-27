@@ -11,6 +11,7 @@ import {
 export function StatusActions({ bookingId, currentStatus }: { bookingId: string; currentStatus: string }) {
   const next = nextStatusesFor(currentStatus as BookingStatus);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   if (next.length === 0) {
@@ -19,6 +20,7 @@ export function StatusActions({ bookingId, currentStatus }: { bookingId: string;
 
   const submit = (next_status: BookingStatus, note?: string) => {
     setError(null);
+    setWarning(null);
     const fd = new FormData();
     fd.set("booking_id", bookingId);
     fd.set("next_status", next_status);
@@ -26,6 +28,7 @@ export function StatusActions({ bookingId, currentStatus }: { bookingId: string;
     startTransition(async () => {
       const res = await transitionBookingStatus(fd);
       if (res?.error) setError(res.error);
+      else if (res?.warning) setWarning(res.warning);
     });
   };
 
@@ -50,6 +53,7 @@ export function StatusActions({ bookingId, currentStatus }: { bookingId: string;
         return <DestructiveActionButton key={n} nextStatus={n} label={label} isPending={isPending} onConfirm={submit} />;
       })}
       {error && <p className="text-red-600 text-sm">{error}</p>}
+      {warning && <p className="text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-2 py-1 text-sm">{warning}</p>}
     </div>
   );
 }

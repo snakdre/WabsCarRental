@@ -1,5 +1,5 @@
 import type { ManagementBookingDetail } from "@/lib/queries/management-bookings";
-import { StatusPill } from "./status-pill";
+import { StatusPill } from "@/components/shared/status-pill";
 
 export function BookingDetailHeader({ booking }: { booking: ManagementBookingDetail }) {
   return (

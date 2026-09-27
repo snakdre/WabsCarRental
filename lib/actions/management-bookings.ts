@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { canTransition, STATUS_LABEL, isBookingStatus, type BookingStatus } from "@/lib/booking-status";
 import { transitionSchema, notesSchema } from "@/lib/validators/management-bookings";
 
-type ActionResult = { success?: true; error?: string; field?: string };
+type ActionResult = { success?: true; warning?: string; error?: string; field?: string };
 
 export async function transitionBookingStatus(formData: FormData): Promise<ActionResult> {
   const raw = {
@@ -61,21 +61,25 @@ export async function transitionBookingStatus(formData: FormData): Promise<Actio
     });
   if (histErr) throw histErr;
 
+  let warning: string | undefined;
   if (next_status === "cancelled" || next_status === "rejected") {
+    // DELETE availability rows created by this booking (regardless of pickup date —
+    // even a booking cancelled mid-active still needs its future availability freed,
+    // and the exclusion constraint uses inclusive date ranges).
     const { error: delErr } = await supabase
       .from("vehicle_availability")
       .delete()
       .eq("reference_id", booking_id)
       .eq("type", "booking");
     if (delErr) {
-      // Non-fatal: status change already persisted. Log and move on.
       console.error("Failed to release availability after cancel/reject", { booking_id, delErr });
+      warning = "Status updated but the vehicle's dates could not be released automatically. Contact an admin.";
     }
   }
 
   revalidatePath("/management/bookings");
   revalidatePath(`/management/bookings/${booking_id}`);
-  return { success: true };
+  return warning ? { success: true, warning } : { success: true };
 }
 
 export async function updateBookingNotes(formData: FormData): Promise<ActionResult> {

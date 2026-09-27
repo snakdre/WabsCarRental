@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { listMyBookings } from "@/lib/queries/bookings";
 import { formatMoney } from "@/lib/utils/format";
-import { StatusPill } from "@/components/management/bookings/status-pill";
+import { StatusPill } from "@/components/shared/status-pill";
 
 export async function BookingsTable() {
   const bookings = await listMyBookings();

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ManagementBookingListItem } from "@/lib/queries/management-bookings";
-import { StatusPill } from "./status-pill";
+import { StatusPill } from "@/components/shared/status-pill";
 import { formatMoney } from "@/lib/utils/format";
 
 export function BookingsTable({ bookings }: { bookings: ManagementBookingListItem[] }) {
