@@ -54,53 +54,67 @@ export type VehicleDetail = {
   } | null;
 };
 
-const CARD_COLUMNS = "id, make, model, trim, year, category, daily_price, is_featured";
+const CARD_SELECT = `
+  id, make, model, trim, year, category, daily_price, is_featured,
+  vehicle_images ( url, alt_text )
+`;
 
-type CardRow = Omit<VehicleCardData, "cover_url" | "cover_alt">;
-type CoverRow = { vehicle_id: string; url: string; alt_text: string | null };
+type NestedRow = {
+  id: string;
+  make: string;
+  model: string;
+  trim: string | null;
+  year: number;
+  category: string;
+  daily_price: number;
+  is_featured: boolean;
+  vehicle_images: { url: string; alt_text: string | null }[] | null;
+};
 
-async function attachCovers(rows: CardRow[]): Promise<VehicleCardData[]> {
-  if (rows.length === 0) return [];
-  const supabase = await createClient();
-  const ids = rows.map((r) => r.id);
-  const { data: covers, error } = await supabase
-    .from("vehicle_images")
-    .select("vehicle_id, url, alt_text")
-    .in("vehicle_id", ids)
-    .eq("is_cover", true);
-  if (error) throw error;
-  const byId = new Map<string, { url: string; alt_text: string | null }>();
-  (covers ?? []).forEach((c: CoverRow) => byId.set(c.vehicle_id, { url: c.url, alt_text: c.alt_text }));
-  return rows.map((r) => ({
-    ...r,
-    cover_url: byId.get(r.id)?.url ?? null,
-    cover_alt: byId.get(r.id)?.alt_text ?? null,
-  }));
+function mapRow(r: NestedRow): VehicleCardData {
+  const cover = r.vehicle_images?.[0] ?? null;
+  return {
+    id: r.id,
+    make: r.make,
+    model: r.model,
+    trim: r.trim,
+    year: r.year,
+    category: r.category,
+    daily_price: r.daily_price,
+    is_featured: r.is_featured,
+    cover_url: cover?.url ?? null,
+    cover_alt: cover?.alt_text ?? null,
+  };
 }
 
 export async function getFeaturedVehicles(limit = 4): Promise<VehicleCardData[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("vehicles")
-    .select(CARD_COLUMNS)
+    .select(CARD_SELECT)
     .eq("status", "available")
     .eq("is_featured", true)
+    .eq("vehicle_images.is_cover", true)
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return attachCovers((data ?? []) as unknown as CardRow[]);
+  return (data ?? []).map((r) => mapRow(r as unknown as NestedRow));
 }
 
 export async function listVehicles(params: BrowseParams): Promise<VehicleCardData[]> {
   const supabase = await createClient();
-  let query = supabase.from("vehicles").select(CARD_COLUMNS).eq("status", "available");
+  let query = supabase
+    .from("vehicles")
+    .select(CARD_SELECT)
+    .eq("status", "available")
+    .eq("vehicle_images.is_cover", true);
   if (params.category) query = query.eq("category", params.category);
   if (params.sort === "price_asc") query = query.order("daily_price", { ascending: true });
   else if (params.sort === "price_desc") query = query.order("daily_price", { ascending: false });
   else query = query.order("is_featured", { ascending: false }).order("created_at", { ascending: false });
   const { data, error } = await query;
   if (error) throw error;
-  return attachCovers((data ?? []) as unknown as CardRow[]);
+  return (data ?? []).map((r) => mapRow(r as unknown as NestedRow));
 }
 
 export async function getVehicleById(id: string): Promise<VehicleDetail | null> {
