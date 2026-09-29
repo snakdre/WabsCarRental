@@ -2,6 +2,7 @@ import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
+// cache() deduplicates within a single RSC render pass; it has no effect in Server Actions.
 export const createClient = cache(async () => {
   const cookieStore = await cookies();
 
