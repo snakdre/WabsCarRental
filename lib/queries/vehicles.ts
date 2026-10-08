@@ -1,4 +1,6 @@
+import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import type { BrowseParams } from "@/lib/validators/browse";
 
 export type VehicleCardData = {
@@ -87,8 +89,8 @@ function mapRow(r: NestedRow): VehicleCardData {
   };
 }
 
-export async function getFeaturedVehicles(limit = 4): Promise<VehicleCardData[]> {
-  const supabase = await createClient();
+async function fetchFeatured(limit: number): Promise<VehicleCardData[]> {
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("vehicles")
     .select(CARD_SELECT)
@@ -101,8 +103,18 @@ export async function getFeaturedVehicles(limit = 4): Promise<VehicleCardData[]>
   return (data ?? []).map((r) => mapRow(r as unknown as NestedRow));
 }
 
-export async function listVehicles(params: BrowseParams): Promise<VehicleCardData[]> {
-  const supabase = await createClient();
+export const getFeaturedVehicles = unstable_cache(
+  fetchFeatured,
+  ["featured-vehicles"],
+  { revalidate: 60, tags: ["vehicles"] }
+);
+
+// NOTE: BrowseParams carries pickup/return date fields that the Hero search form
+// populates, but fetchList does not currently filter on them (no vehicle_availability
+// join yet). If date-based availability filtering is added, extend the cache key
+// below to include pickup/return or the cache will serve stale cross-date results.
+async function fetchList(params: BrowseParams): Promise<VehicleCardData[]> {
+  const supabase = createPublicClient();
   let query = supabase
     .from("vehicles")
     .select(CARD_SELECT)
@@ -116,6 +128,12 @@ export async function listVehicles(params: BrowseParams): Promise<VehicleCardDat
   if (error) throw error;
   return (data ?? []).map((r) => mapRow(r as unknown as NestedRow));
 }
+
+export const listVehicles = unstable_cache(
+  fetchList,
+  ["list-vehicles"],
+  { revalidate: 60, tags: ["vehicles"] }
+);
 
 export async function getVehicleById(id: string): Promise<VehicleDetail | null> {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
