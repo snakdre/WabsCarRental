@@ -4,8 +4,6 @@ import { CategoryChips } from "@/components/customer/vehicles/category-chips";
 import { SortSelect } from "@/components/customer/vehicles/sort-select";
 import { VehicleGrid } from "@/components/customer/vehicles/vehicle-grid";
 
-export const dynamic = "force-dynamic";
-
 export default async function VehiclesPage({
   searchParams,
 }: {

@@ -1,4 +1,6 @@
+import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import type { BrowseParams } from "@/lib/validators/browse";
 
 export type VehicleCardData = {
@@ -87,8 +89,8 @@ function mapRow(r: NestedRow): VehicleCardData {
   };
 }
 
-export async function getFeaturedVehicles(limit = 4): Promise<VehicleCardData[]> {
-  const supabase = await createClient();
+async function fetchFeatured(limit: number): Promise<VehicleCardData[]> {
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("vehicles")
     .select(CARD_SELECT)
@@ -101,8 +103,15 @@ export async function getFeaturedVehicles(limit = 4): Promise<VehicleCardData[]>
   return (data ?? []).map((r) => mapRow(r as unknown as NestedRow));
 }
 
-export async function listVehicles(params: BrowseParams): Promise<VehicleCardData[]> {
-  const supabase = await createClient();
+export const getFeaturedVehicles = (limit = 4): Promise<VehicleCardData[]> =>
+  unstable_cache(
+    () => fetchFeatured(limit),
+    ["featured-vehicles", String(limit)],
+    { revalidate: 60, tags: ["vehicles"] }
+  )();
+
+async function fetchList(params: BrowseParams): Promise<VehicleCardData[]> {
+  const supabase = createPublicClient();
   let query = supabase
     .from("vehicles")
     .select(CARD_SELECT)
@@ -116,6 +125,13 @@ export async function listVehicles(params: BrowseParams): Promise<VehicleCardDat
   if (error) throw error;
   return (data ?? []).map((r) => mapRow(r as unknown as NestedRow));
 }
+
+export const listVehicles = (params: BrowseParams): Promise<VehicleCardData[]> =>
+  unstable_cache(
+    () => fetchList(params),
+    ["list-vehicles", params.category ?? "", params.sort ?? ""],
+    { revalidate: 60, tags: ["vehicles"] }
+  )();
 
 export async function getVehicleById(id: string): Promise<VehicleDetail | null> {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
