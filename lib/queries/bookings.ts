@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/utils/session";
 
 export type BookingRow = {
   id: string;
@@ -34,9 +35,9 @@ export async function getBookingByRef(ref: string): Promise<BookingRow | null> {
 }
 
 export async function listMyBookings(): Promise<BookingListItem[]> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return [];
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("bookings")
     .select("*, vehicles(make, model, year)")
