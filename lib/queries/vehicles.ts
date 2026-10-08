@@ -103,13 +103,16 @@ async function fetchFeatured(limit: number): Promise<VehicleCardData[]> {
   return (data ?? []).map((r) => mapRow(r as unknown as NestedRow));
 }
 
-export const getFeaturedVehicles = (limit = 4): Promise<VehicleCardData[]> =>
-  unstable_cache(
-    () => fetchFeatured(limit),
-    ["featured-vehicles", String(limit)],
-    { revalidate: 60, tags: ["vehicles"] }
-  )();
+export const getFeaturedVehicles = unstable_cache(
+  fetchFeatured,
+  ["featured-vehicles"],
+  { revalidate: 60, tags: ["vehicles"] }
+);
 
+// NOTE: BrowseParams carries pickup/return date fields that the Hero search form
+// populates, but fetchList does not currently filter on them (no vehicle_availability
+// join yet). If date-based availability filtering is added, extend the cache key
+// below to include pickup/return or the cache will serve stale cross-date results.
 async function fetchList(params: BrowseParams): Promise<VehicleCardData[]> {
   const supabase = createPublicClient();
   let query = supabase
@@ -126,12 +129,11 @@ async function fetchList(params: BrowseParams): Promise<VehicleCardData[]> {
   return (data ?? []).map((r) => mapRow(r as unknown as NestedRow));
 }
 
-export const listVehicles = (params: BrowseParams): Promise<VehicleCardData[]> =>
-  unstable_cache(
-    () => fetchList(params),
-    ["list-vehicles", params.category ?? "", params.sort ?? ""],
-    { revalidate: 60, tags: ["vehicles"] }
-  )();
+export const listVehicles = unstable_cache(
+  fetchList,
+  ["list-vehicles"],
+  { revalidate: 60, tags: ["vehicles"] }
+);
 
 export async function getVehicleById(id: string): Promise<VehicleDetail | null> {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
