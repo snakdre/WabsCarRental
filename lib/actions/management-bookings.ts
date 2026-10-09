@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { canTransition, STATUS_LABEL, isBookingStatus, type BookingStatus } from "@/lib/booking-status";
 import { transitionSchema, notesSchema } from "@/lib/validators/management-bookings";
@@ -77,6 +77,7 @@ export async function transitionBookingStatus(formData: FormData): Promise<Actio
     }
   }
 
+  revalidateTag("vehicles");
   revalidatePath("/management/bookings");
   revalidatePath(`/management/bookings/${booking_id}`);
   return warning ? { success: true, warning } : { success: true };

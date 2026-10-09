@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { calculatePricing } from "@/lib/pricing";
 import { generateBookingReference } from "@/lib/booking-reference";
@@ -179,6 +179,7 @@ export async function createDraftBooking(formData: FormData) {
 
     const { data: rpcResult, error: rpcErr } = await supabase.rpc("create_booking_with_availability", { p_booking });
     if (!rpcErr) {
+      revalidateTag("vehicles");
       redirect(`/checkout/payment?booking_ref=${rpcResult}`);
     }
     // Reference collision → retry
@@ -255,6 +256,7 @@ export async function confirmPayment(formData: FormData) {
     note: "Mock payment completed",
   });
 
+  revalidateTag("vehicles");
   revalidatePath("/account");
   redirect(`/checkout/confirmation/${booking.reference}`);
 }
