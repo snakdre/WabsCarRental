@@ -39,41 +39,55 @@ export async function transitionBookingStatus(formData: FormData): Promise<Actio
     return { error: `Cannot transition from ${STATUS_LABEL[from]} to ${STATUS_LABEL[next_status]}.` };
   }
 
-  // TODO(plan-5-refunds): when the refunds workflow lands, replace this note-only
-  // path with an actual refunds row + Stripe refund API call.
   if (next_status === "refunded" && (!note || !note.trim())) {
     return { error: "Refunds require a note.", field: "note" };
   }
 
-  const { error: updErr } = await supabase
-    .from("bookings")
-    .update({ status: next_status, updated_at: new Date().toISOString() })
-    .eq("id", booking_id);
-  if (updErr) throw updErr;
-
-  const { error: histErr } = await supabase
-    .from("booking_status_history")
-    .insert({
-      booking_id,
-      status: next_status,
-      changed_by: user.id,
-      note: note ?? null,
-    });
-  if (histErr) throw histErr;
-
   let warning: string | undefined;
-  if (next_status === "cancelled" || next_status === "rejected" || next_status === "refunded") {
-    // DELETE availability rows created by this booking (regardless of pickup date —
-    // even a booking cancelled mid-active still needs its future availability freed,
-    // and the exclusion constraint uses inclusive date ranges).
-    const { error: delErr } = await supabase
-      .from("vehicle_availability")
-      .delete()
-      .eq("reference_id", booking_id)
-      .eq("type", "booking");
-    if (delErr) {
-      console.error("Failed to release availability after cancel/reject", { booking_id, delErr });
-      warning = "Status updated but the vehicle's dates could not be released automatically. Contact an admin.";
+
+  if (next_status === "refunded") {
+    // Atomic: insert refund + flip payment + flip booking + history + release availability.
+    const { error: rpcErr } = await supabase.rpc("refund_booking", {
+      p_booking_id: booking_id,
+      p_user_id: user.id,
+      p_note: note,
+    });
+    if (rpcErr) {
+      if (rpcErr.message?.includes("No completed payment found")) {
+        return { error: "This booking has no completed payment to refund." };
+      }
+      throw rpcErr;
+    }
+  } else {
+    const { error: updErr } = await supabase
+      .from("bookings")
+      .update({ status: next_status, updated_at: new Date().toISOString() })
+      .eq("id", booking_id);
+    if (updErr) throw updErr;
+
+    const { error: histErr } = await supabase
+      .from("booking_status_history")
+      .insert({
+        booking_id,
+        status: next_status,
+        changed_by: user.id,
+        note: note ?? null,
+      });
+    if (histErr) throw histErr;
+
+    if (next_status === "cancelled" || next_status === "rejected") {
+      // DELETE availability rows created by this booking (regardless of pickup date —
+      // even a booking cancelled mid-active still needs its future availability freed,
+      // and the exclusion constraint uses inclusive date ranges).
+      const { error: delErr } = await supabase
+        .from("vehicle_availability")
+        .delete()
+        .eq("reference_id", booking_id)
+        .eq("type", "booking");
+      if (delErr) {
+        console.error("Failed to release availability after cancel/reject", { booking_id, delErr });
+        warning = "Status updated but the vehicle's dates could not be released automatically. Contact an admin.";
+      }
     }
   }
 
