@@ -1,0 +1,13 @@
+.git
+.github
+.next
+node_modules
+coverage
+.env
+.env*.local
+*.md
+docs
+scripts/smoke-test-auth.mjs
+scripts/docs-server.mjs
+.vscode
+.idea
