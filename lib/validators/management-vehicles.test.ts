@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { updateVehicleSchema } from "./management-vehicles";
+import { updateVehicleSchema, createVehicleSchema } from "./management-vehicles";
 
 const base = {
   vehicle_id: "aaaaaaaa-0000-0000-0000-000000000001",
@@ -41,5 +41,51 @@ describe("updateVehicleSchema", () => {
   it("rejects description longer than 2000 chars", () => {
     const result = updateVehicleSchema.safeParse({ ...base, description: "x".repeat(2001) });
     expect(result.success).toBe(false);
+  });
+});
+
+const createBase = {
+  make: "Ferrari",
+  model: "F8 Tributo",
+  trim: null,
+  year: 2023,
+  category: "exotic" as const,
+  daily_price: 500,
+  description: null,
+};
+
+describe("createVehicleSchema", () => {
+  it("accepts a minimal valid payload with trim and description null", () => {
+    const result = createVehicleSchema.safeParse(createBase);
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects empty make", () => {
+    const result = createVehicleSchema.safeParse({ ...createBase, make: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects year below 1990 and above 2030", () => {
+    expect(createVehicleSchema.safeParse({ ...createBase, year: 1989 }).success).toBe(false);
+    expect(createVehicleSchema.safeParse({ ...createBase, year: 2031 }).success).toBe(false);
+  });
+
+  it("rejects unknown category", () => {
+    const result = createVehicleSchema.safeParse({ ...createBase, category: "sedan" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects zero and negative daily_price", () => {
+    expect(createVehicleSchema.safeParse({ ...createBase, daily_price: 0 }).success).toBe(false);
+    expect(createVehicleSchema.safeParse({ ...createBase, daily_price: -100 }).success).toBe(false);
+  });
+
+  it("accepts a valid payload with all optional fields filled", () => {
+    const result = createVehicleSchema.safeParse({
+      ...createBase,
+      trim: "Spider",
+      description: "A beautiful exotic car.",
+    });
+    expect(result.success).toBe(true);
   });
 });
