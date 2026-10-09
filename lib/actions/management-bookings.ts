@@ -62,7 +62,7 @@ export async function transitionBookingStatus(formData: FormData): Promise<Actio
   if (histErr) throw histErr;
 
   let warning: string | undefined;
-  if (next_status === "cancelled" || next_status === "rejected") {
+  if (next_status === "cancelled" || next_status === "rejected" || next_status === "refunded") {
     // DELETE availability rows created by this booking (regardless of pickup date —
     // even a booking cancelled mid-active still needs its future availability freed,
     // and the exclusion constraint uses inclusive date ranges).

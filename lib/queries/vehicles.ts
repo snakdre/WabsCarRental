@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createPublicClient } from "@/lib/supabase/public";
-import type { BrowseParams } from "@/lib/validators/browse";
+import { isDateFilterActive, type BrowseParams } from "@/lib/validators/browse";
 
 export type VehicleCardData = {
   id: string;
@@ -127,7 +127,7 @@ async function fetchList(params: BrowseParams): Promise<VehicleCardData[]> {
   // Filter by date availability when both pickup and return are present.
   // A vehicle_availability row [start_date, end_date] overlaps the requested
   // range [pickup, return] iff start_date <= return AND end_date >= pickup.
-  if (params.pickup && params.return) {
+  if (isDateFilterActive(params)) {
     const { data: blocked, error: blockedErr } = await supabase
       .from("vehicle_availability")
       .select("vehicle_id")

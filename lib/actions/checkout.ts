@@ -256,7 +256,6 @@ export async function confirmPayment(formData: FormData) {
     note: "Mock payment completed",
   });
 
-  revalidateTag("vehicles");
   revalidatePath("/account");
   redirect(`/checkout/confirmation/${booking.reference}`);
 }

@@ -14,7 +14,9 @@ export const browseParamsSchema = z.object({
 
 export type BrowseParams = z.infer<typeof browseParamsSchema>;
 
-export function isDateFilterActive(params: BrowseParams): boolean {
+export function isDateFilterActive(
+  params: BrowseParams
+): params is BrowseParams & { pickup: string; return: string } {
   return typeof params.pickup === "string" && typeof params.return === "string";
 }
 
