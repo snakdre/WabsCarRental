@@ -1,7 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 
-export type ManagementVehicleListParams = Record<string, never>;
-
 export type ManagementVehicleListItem = {
   id: string;
   make: string;
@@ -45,10 +43,7 @@ type VehicleRow = {
   vehicle_images: ImageJoin;
 };
 
-export async function listAllVehicles(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _params: ManagementVehicleListParams = {} as ManagementVehicleListParams
-): Promise<ManagementVehicleListItem[]> {
+export async function listAllVehicles(): Promise<ManagementVehicleListItem[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("vehicles")

@@ -4,7 +4,7 @@ import { VehiclesTable } from "@/components/management/vehicles/vehicles-table";
 export const dynamic = "force-dynamic";
 
 export default async function ManagementVehiclesPage() {
-  const vehicles = await listAllVehicles({});
+  const vehicles = await listAllVehicles();
 
   return (
     <main className="max-w-7xl mx-auto p-8">

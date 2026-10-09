@@ -12,8 +12,7 @@ const ITEMS = [
   { href: "#", label: "Settings", enabled: false },
 ];
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function ManagementSidebar({ activeHref: _activeHref }: { activeHref?: string }) {
+export function ManagementSidebar() {
   const pathname = usePathname();
   return (
     <aside className="w-56 shrink-0 bg-navy border-r border-navy-light py-8 px-4 min-h-screen">
@@ -24,7 +23,8 @@ export function ManagementSidebar({ activeHref: _activeHref }: { activeHref?: st
       <nav>
         <ul className="space-y-1">
           {ITEMS.map((item) => {
-            const isActive = item.enabled && pathname.startsWith(item.href);
+            const isActive =
+              item.enabled && (pathname === item.href || pathname.startsWith(item.href + "/"));
             const base = "block px-3 py-2 rounded text-sm";
             if (!item.enabled) {
               return (

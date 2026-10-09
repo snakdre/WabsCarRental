@@ -8,6 +8,9 @@ import { updateVehicleSchema } from "@/lib/validators/management-vehicles";
 type ActionResult = { success?: true; error?: string; field?: string };
 
 export async function updateVehicle(formData: FormData): Promise<ActionResult> {
+  const role = await getUserRole();
+  if (!isManagerOrAdmin(role)) return { error: "Forbidden" };
+
   const vehicle_id = String(formData.get("vehicle_id") ?? "");
   const status = String(formData.get("status") ?? "");
   const is_featured = formData.get("is_featured") === "on";
@@ -39,11 +42,8 @@ export async function updateVehicle(formData: FormData): Promise<ActionResult> {
     return { error: first.message, field: first.path.join(".") };
   }
 
-  const role = await getUserRole();
-  if (!isManagerOrAdmin(role)) return { error: "Forbidden" };
-
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("vehicles")
     .update({
       status: parsed.data.status,
@@ -54,8 +54,11 @@ export async function updateVehicle(formData: FormData): Promise<ActionResult> {
       description: parsed.data.description,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", parsed.data.vehicle_id);
+    .eq("id", parsed.data.vehicle_id)
+    .select("id")
+    .maybeSingle();
   if (error) throw error;
+  if (!updated) return { error: "Vehicle not found" };
 
   revalidateTag("vehicles");
   revalidatePath("/management/vehicles");
