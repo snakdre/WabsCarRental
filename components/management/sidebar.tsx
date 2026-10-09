@@ -7,7 +7,7 @@ const ITEMS = [
   { href: "/management/bookings", label: "Bookings", enabled: true },
   { href: "/management/vehicles", label: "Vehicles", enabled: true },
   { href: "#", label: "Customers", enabled: false },
-  { href: "#", label: "Calendar", enabled: false },
+  { href: "/management/calendar", label: "Calendar", enabled: true },
   { href: "#", label: "Maintenance", enabled: false },
   { href: "#", label: "Settings", enabled: false },
 ];
