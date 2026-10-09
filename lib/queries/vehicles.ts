@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createPublicClient } from "@/lib/supabase/public";
-import type { BrowseParams } from "@/lib/validators/browse";
+import { isDateFilterActive, type BrowseParams } from "@/lib/validators/browse";
 
 export type VehicleCardData = {
   id: string;
@@ -109,10 +109,6 @@ export const getFeaturedVehicles = unstable_cache(
   { revalidate: 60, tags: ["vehicles"] }
 );
 
-// NOTE: BrowseParams carries pickup/return date fields that the Hero search form
-// populates, but fetchList does not currently filter on them (no vehicle_availability
-// join yet). If date-based availability filtering is added, extend the cache key
-// below to include pickup/return or the cache will serve stale cross-date results.
 async function fetchList(params: BrowseParams): Promise<VehicleCardData[]> {
   const supabase = createPublicClient();
   let query = supabase
@@ -126,9 +122,29 @@ async function fetchList(params: BrowseParams): Promise<VehicleCardData[]> {
   else query = query.order("is_featured", { ascending: false }).order("created_at", { ascending: false });
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []).map((r) => mapRow(r as unknown as NestedRow));
+  const rows = (data ?? []).map((r) => mapRow(r as unknown as NestedRow));
+
+  // Filter by date availability when both pickup and return are present.
+  // A vehicle_availability row [start_date, end_date] overlaps the requested
+  // range [pickup, return] iff start_date <= return AND end_date >= pickup.
+  if (isDateFilterActive(params)) {
+    const { data: blocked, error: blockedErr } = await supabase
+      .from("vehicle_availability")
+      .select("vehicle_id")
+      .in("type", ["booking", "maintenance", "blocked"])
+      .lte("start_date", params.return)
+      .gte("end_date", params.pickup);
+    if (blockedErr) throw blockedErr;
+    const blockedSet = new Set((blocked ?? []).map((r: { vehicle_id: string }) => r.vehicle_id));
+    return rows.filter((r) => !blockedSet.has(r.id));
+  }
+
+  return rows;
 }
 
+// unstable_cache serializes function arguments as part of the cache key, so
+// distinct BrowseParams values (including pickup/return) produce distinct cache
+// entries automatically. No manual key extension is needed.
 export const listVehicles = unstable_cache(
   fetchList,
   ["list-vehicles"],

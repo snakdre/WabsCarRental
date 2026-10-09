@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { canTransition, STATUS_LABEL, isBookingStatus, type BookingStatus } from "@/lib/booking-status";
 import { transitionSchema, notesSchema } from "@/lib/validators/management-bookings";
@@ -62,7 +62,7 @@ export async function transitionBookingStatus(formData: FormData): Promise<Actio
   if (histErr) throw histErr;
 
   let warning: string | undefined;
-  if (next_status === "cancelled" || next_status === "rejected") {
+  if (next_status === "cancelled" || next_status === "rejected" || next_status === "refunded") {
     // DELETE availability rows created by this booking (regardless of pickup date —
     // even a booking cancelled mid-active still needs its future availability freed,
     // and the exclusion constraint uses inclusive date ranges).
@@ -77,6 +77,7 @@ export async function transitionBookingStatus(formData: FormData): Promise<Actio
     }
   }
 
+  revalidateTag("vehicles");
   revalidatePath("/management/bookings");
   revalidatePath(`/management/bookings/${booking_id}`);
   return warning ? { success: true, warning } : { success: true };
