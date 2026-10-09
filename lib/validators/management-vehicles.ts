@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const VEHICLE_STATUSES = ["draft", "available", "reserved", "rented", "maintenance", "inactive"] as const;
 
+export const CATEGORIES = ["exotic", "sports", "suv", "convertible", "executive", "electric"] as const;
+
 // Our seed uses memorable UUIDs like aaaaaaaa-0000-0000-0000-000000000001 that
 // are not RFC-4122 version-compliant (zod's .uuid() enforces version nibble 1-8).
 // Postgres accepts them as valid UUID columns, so match on hex-shape only.
@@ -18,3 +20,15 @@ export const updateVehicleSchema = z.object({
 });
 
 export type UpdateVehicleInput = z.infer<typeof updateVehicleSchema>;
+
+export const createVehicleSchema = z.object({
+  make: z.string().min(1).max(50),
+  model: z.string().min(1).max(50),
+  trim: z.string().max(50).nullable(),
+  year: z.number().int().min(1990).max(2030),
+  category: z.enum(CATEGORIES),
+  daily_price: z.number().positive(),
+  description: z.string().max(2000).nullable(),
+});
+
+export type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
