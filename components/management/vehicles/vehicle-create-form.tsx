@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { createVehicle } from "@/lib/actions/management-vehicles";
 import { CATEGORIES } from "@/lib/validators/management-vehicles";
+import { Button } from "@/components/ui/button";
 
 export function VehicleCreateForm() {
   const [make, setMake] = useState("");
@@ -168,13 +169,13 @@ export function VehicleCreateForm() {
       </div>
 
       <div className="flex items-center gap-3">
-        <button
+        <Button
           type="submit"
           disabled={isPending}
-          className="bg-gold hover:bg-gold-muted text-deep font-semibold px-4 py-2 rounded disabled:opacity-50 disabled:pointer-events-none"
+          className="bg-gold hover:bg-gold-muted text-deep font-semibold"
         >
           {isPending ? "Creating…" : "Create vehicle"}
-        </button>
+        </Button>
         {error && <span className="text-red-600 text-sm">{error}</span>}
       </div>
 

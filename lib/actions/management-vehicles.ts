@@ -116,5 +116,6 @@ export async function createVehicle(formData: FormData): Promise<ActionResult> {
 
   revalidateTag("vehicles");
   revalidatePath("/management/vehicles");
+  revalidatePath(`/management/vehicles/${inserted.id}`);
   redirect(`/management/vehicles/${inserted.id}`);
 }
