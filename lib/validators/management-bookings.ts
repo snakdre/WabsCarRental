@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { BOOKING_STATUSES } from "@/lib/booking-status";
+import { uuidLike } from "./shared";
 
 export const managementListParamsSchema = z.object({
   status: z.enum(BOOKING_STATUSES).optional(),
@@ -7,13 +8,13 @@ export const managementListParamsSchema = z.object({
 });
 
 export const transitionSchema = z.object({
-  booking_id: z.string().uuid(),
+  booking_id: uuidLike,
   next_status: z.enum(BOOKING_STATUSES),
   note: z.string().max(500).nullable().optional(),
 });
 
 export const notesSchema = z.object({
-  booking_id: z.string().uuid(),
+  booking_id: uuidLike,
   notes: z.string().max(2000),
 });
 
