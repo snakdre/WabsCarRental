@@ -43,6 +43,11 @@ export function BookingsFilters() {
     return `/management/bookings${qs ? `?${qs}` : ""}`;
   };
 
+  const exportHref = (() => {
+    const qs = params.toString();
+    return `/management/bookings/export${qs ? `?${qs}` : ""}`;
+  })();
+
   return (
     <div className="flex flex-col gap-3 mb-6">
       <div className="flex flex-wrap gap-2" data-testid="bookings-filter-chips">
@@ -63,14 +68,24 @@ export function BookingsFilters() {
           );
         })}
       </div>
-      <input
-        type="text"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search reference, name, or email…"
-        className="w-full max-w-md bg-white border border-gray-300 text-navy rounded px-3 py-2 focus:border-gold focus:outline-none text-sm"
-        data-testid="bookings-search-input"
-      />
+      <div className="flex items-center justify-between gap-3">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search reference, name, or email…"
+          className="w-full max-w-md bg-white border border-gray-300 text-navy rounded px-3 py-2 focus:border-gold focus:outline-none text-sm"
+          data-testid="bookings-search-input"
+        />
+        <a
+          href={exportHref}
+          download
+          className="inline-flex items-center gap-1 border border-gray-300 bg-white hover:bg-gray-50 text-navy px-3 py-2 rounded text-sm whitespace-nowrap"
+          data-testid="bookings-export-link"
+        >
+          Download CSV
+        </a>
+      </div>
     </div>
   );
 }
