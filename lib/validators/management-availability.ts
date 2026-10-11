@@ -1,7 +1,5 @@
 import { z } from "zod";
-
-const uuidLike = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
-const dateField = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+import { uuidLike, dateField } from "./shared";
 
 export const BLOCKABLE_TYPES = ["maintenance", "blocked"] as const;
 
