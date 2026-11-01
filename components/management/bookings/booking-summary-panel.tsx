@@ -1,4 +1,5 @@
 import type { ManagementBookingDetail } from "@/lib/queries/management-bookings";
+import Link from "next/link";
 import { formatMoney } from "@/lib/utils/format";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
@@ -37,6 +38,10 @@ export function BookingSummaryPanel({ booking }: { booking: ManagementBookingDet
         <Row label="Date of birth" value={booking.driver_dob} />
         <Row label="License" value={`${booking.license_number} (${booking.license_region})`} />
         <Row label="License expiry" value={booking.license_expiry} />
+        <Row
+          label="Customer account"
+          value={<Link href={`/management/customers/${booking.customer_id}`} className="text-gold hover:underline">View profile →</Link>}
+        />
       </Section>
 
       <Section title="Pricing">
