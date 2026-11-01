@@ -135,3 +135,25 @@ export async function getCustomerDetail(id: string): Promise<CustomerDetail | nu
     },
   };
 }
+
+// Documents for one customer with short-lived signed URLs (booking detail panel).
+export async function listCustomerDocuments(customerId: string): Promise<CustomerDocument[]> {
+  if (!uuidLike.safeParse(customerId).success) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("customer_documents")
+    .select("id, type, storage_path, verified, uploaded_at")
+    .eq("customer_id", customerId)
+    .order("uploaded_at", { ascending: false });
+  if (error) throw error;
+  const rows = (data ?? []) as { id: string; type: string; storage_path: string; verified: boolean; uploaded_at: string }[];
+  if (rows.length === 0) return [];
+  const { data: signed } = await supabase.storage
+    .from(DOCUMENTS_BUCKET)
+    .createSignedUrls(rows.map(r => r.storage_path), 900);
+  const byPath = new Map((signed ?? []).flatMap(s => (s.signedUrl && s.path ? [[s.path, s.signedUrl] as [string, string]] : [])));
+  return rows.map(r => ({
+    id: r.id, type: r.type, verified: r.verified, uploaded_at: r.uploaded_at,
+    signed_url: byPath.get(r.storage_path) ?? null,
+  }));
+}

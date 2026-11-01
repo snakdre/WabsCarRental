@@ -9,13 +9,19 @@ import {
 } from "@/components/ui/dialog";
 
 export function StatusActions({ bookingId, currentStatus }: { bookingId: string; currentStatus: string }) {
-  const next = nextStatusesFor(currentStatus as BookingStatus);
+  // active / completed are reached via the pickup / return panel.
+  const next = nextStatusesFor(currentStatus as BookingStatus).filter(s => s !== "active" && s !== "completed");
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   if (next.length === 0) {
-    return <p className="text-sm text-text-muted-wabs italic">This booking is in a final state.</p>;
+    const handover = currentStatus === "active" || currentStatus === "ready_for_pickup" || currentStatus === "confirmed";
+    return (
+      <p className="text-sm text-text-muted-wabs italic">
+        {handover ? "Use the pickup / return panel to progress this booking." : "This booking is in a final state."}
+      </p>
+    );
   }
 
   const submit = (next_status: BookingStatus, note?: string) => {

@@ -178,3 +178,13 @@ describe("updateBookingNotes", () => {
     expect(patch.updated_at).toEqual(expect.any(String));
   });
 });
+
+describe("transitionBookingStatus handover guard", () => {
+  it("refuses active/completed so pickup/return recording is used", async () => {
+    supabaseStub.setUser({ id: USER_ID });
+    supabaseStub.setTableResponse("bookings", { data: { id: BOOKING_ID, status: "ready_for_pickup" }, error: null });
+    const r = await transitionBookingStatus(fd({ booking_id: BOOKING_ID, next_status: "active" }));
+    expect(r.error).toMatch(/Record pickup/);
+    expect(supabaseStub.updatedRows["bookings"]).toBeUndefined();
+  });
+});

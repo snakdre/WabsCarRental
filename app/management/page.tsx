@@ -1,4 +1,9 @@
-import { getDashboardKpis } from "@/lib/queries/management-dashboard";
+import {
+  getDashboardKpis, getRevenueTrend, getTopVehicles, getRecentActivity,
+} from "@/lib/queries/management-dashboard";
+import { RevenueTrendChart } from "@/components/management/dashboard/revenue-trend-chart";
+import { TopVehicles } from "@/components/management/dashboard/top-vehicles";
+import { ActivityFeed } from "@/components/management/dashboard/activity-feed";
 import { KpiTile } from "@/components/management/dashboard/kpi-tile";
 import { formatMoney } from "@/lib/utils/format";
 import Link from "next/link";
@@ -6,13 +11,25 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 export default async function ManagementDashboard() {
-  const k = await getDashboardKpis();
+  const [k, trend, top, activity] = await Promise.all([
+    getDashboardKpis(),
+    getRevenueTrend(12),
+    getTopVehicles(5, 365),
+    getRecentActivity(12),
+  ]);
+  // Same source as the chart, so the tile and the current-month column agree.
+  const revenueThisMonth = trend[trend.length - 1]?.revenue ?? 0;
 
   return (
     <main className="max-w-7xl mx-auto p-8">
       <div className="mb-6">
         <p className="text-gold text-xs uppercase tracking-[0.3em] mb-2">Management</p>
-        <h1 className="text-3xl font-bold text-navy">Dashboard</h1>
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-3xl font-bold text-navy">Dashboard</h1>
+          <Link href="/management/bookings/new" className="text-sm bg-gold text-deep font-semibold px-4 py-2 rounded hover:bg-gold-muted">
+            + New booking
+          </Link>
+        </div>
         <p className="text-text-muted-wabs mt-2">At-a-glance operational KPIs</p>
       </div>
 
@@ -25,12 +42,20 @@ export default async function ManagementDashboard() {
         <KpiTile label="Bookings this month" value={k.bookingsThisMonth} />
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
         <div className="bg-white border border-gray-200 rounded-lg p-6">
           <p className="text-text-muted-wabs text-xs uppercase tracking-wider">Revenue this month</p>
-          <p className="text-4xl font-bold text-navy mt-2">{formatMoney(k.revenueThisMonth)}</p>
-          <p className="text-xs text-text-muted-wabs mt-1">Confirmed, active, completed, in-progress bookings</p>
+          <p className="text-4xl font-bold text-navy mt-2">{formatMoney(revenueThisMonth)}</p>
+          <p className="text-xs text-text-muted-wabs mt-1">Confirmed, ready, active and completed bookings</p>
         </div>
+        <div className="lg:col-span-2">
+          <RevenueTrendChart data={trend} />
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+        <TopVehicles vehicles={top} />
+        <ActivityFeed items={activity} />
       </section>
 
       <section className="grid grid-cols-1 md:grid-cols-2 gap-4">

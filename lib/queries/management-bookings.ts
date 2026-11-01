@@ -41,6 +41,18 @@ export type ManagementBookingDetail = ManagementBookingListItem & {
   special_requests: string | null;
   internal_notes: string | null;
   history: StatusHistoryRow[];
+  vehicle_id: string;
+  handover: {
+    pickup_recorded_at: string | null;
+    pickup_odometer: number | null;
+    pickup_fuel_level: number | null;
+    pickup_notes: string | null;
+    return_recorded_at: string | null;
+    return_odometer: number | null;
+    return_fuel_level: number | null;
+    return_notes: string | null;
+  };
+  payments: { id: string; amount: number; method: string; status: string; paid_at: string | null }[];
 };
 
 type VehicleJoin = { year: number; make: string; model: string } | null;
@@ -96,14 +108,16 @@ export async function getManagementBookingDetail(id: string): Promise<Management
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return null;
 
   const supabase = await createClient();
-  const [bookingRes, historyRes] = await Promise.all([
+  const [bookingRes, historyRes, paymentsRes] = await Promise.all([
     supabase
       .from("bookings")
       .select(`
         id, reference, customer_id, pickup_date, return_date, status, total_amount,
         driver_name, driver_email, driver_phone, driver_dob, license_number, license_expiry, license_region,
         pickup_method, rental_days, base_price, delivery_fee, tax_amount, protection_fee, extras_fee,
-        discount_amount, deposit_amount, special_requests, internal_notes, created_at,
+        discount_amount, deposit_amount, special_requests, internal_notes, created_at, vehicle_id,
+        pickup_recorded_at, pickup_odometer, pickup_fuel_level, pickup_notes,
+        return_recorded_at, return_odometer, return_fuel_level, return_notes,
         vehicles ( year, make, model )
       `)
       .eq("id", id)
@@ -113,7 +127,13 @@ export async function getManagementBookingDetail(id: string): Promise<Management
       .select("status, note, created_at")
       .eq("booking_id", id)
       .order("created_at", { ascending: true }),
+    supabase
+      .from("payments")
+      .select("id, amount, method, status, paid_at")
+      .eq("booking_id", id)
+      .order("created_at", { ascending: true }),
   ]);
+  if (paymentsRes.error) throw paymentsRes.error;
 
   if (bookingRes.error) throw bookingRes.error;
   if (historyRes.error) throw historyRes.error;
@@ -127,7 +147,9 @@ export async function getManagementBookingDetail(id: string): Promise<Management
     pickup_method: string; rental_days: number; base_price: number; delivery_fee: number;
     tax_amount: number; protection_fee: number; extras_fee: number; discount_amount: number;
     deposit_amount: number; special_requests: string | null; internal_notes: string | null;
-    created_at: string; vehicles: VehicleJoin;
+    created_at: string; vehicles: VehicleJoin; vehicle_id: string;
+    pickup_recorded_at: string | null; pickup_odometer: number | null; pickup_fuel_level: number | null; pickup_notes: string | null;
+    return_recorded_at: string | null; return_odometer: number | null; return_fuel_level: number | null; return_notes: string | null;
   };
 
   return {
@@ -161,5 +183,38 @@ export async function getManagementBookingDetail(id: string): Promise<Management
     internal_notes: b.internal_notes,
     created_at: b.created_at,
     history: (historyRes.data ?? []) as StatusHistoryRow[],
+    vehicle_id: b.vehicle_id,
+    handover: {
+      pickup_recorded_at: b.pickup_recorded_at ?? null,
+      pickup_odometer: b.pickup_odometer ?? null,
+      pickup_fuel_level: b.pickup_fuel_level ?? null,
+      pickup_notes: b.pickup_notes ?? null,
+      return_recorded_at: b.return_recorded_at ?? null,
+      return_odometer: b.return_odometer ?? null,
+      return_fuel_level: b.return_fuel_level ?? null,
+      return_notes: b.return_notes ?? null,
+    },
+    payments: ((paymentsRes.data ?? []) as { id: string; amount: number; method: string; status: string; paid_at: string | null }[])
+      .map(p => ({ ...p, amount: Number(p.amount) })),
   };
+}
+
+export type BookableVehicle = { id: string; label: string; status: string; daily_price: number };
+
+// Vehicles staff can move a booking to or create a booking on.
+export async function listBookableVehicles(): Promise<BookableVehicle[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("vehicles")
+    .select("id, year, make, model, trim, status, daily_price")
+    .not("status", "in", "(draft,inactive,maintenance)")
+    .order("make", { ascending: true });
+  if (error) throw error;
+  return ((data ?? []) as { id: string; year: number; make: string; model: string; trim: string | null; status: string; daily_price: number }[])
+    .map(v => ({
+      id: v.id,
+      label: `${v.year} ${v.make} ${v.model}${v.trim ? " " + v.trim : ""}`,
+      status: v.status,
+      daily_price: Number(v.daily_price),
+    }));
 }

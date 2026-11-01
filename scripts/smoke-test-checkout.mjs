@@ -136,11 +136,24 @@ async function run() {
     extras: [],
   };
 
-  const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/create_booking_with_availability`, {
+  // Migration 031: customers may no longer call the RPC directly (it trusts
+  // its payload). Verify that, then create via the service role like the app does.
+  const custRpc = await fetch(`${SUPABASE_URL}/rest/v1/rpc/create_booking_with_availability`, {
     method: "POST",
     headers: {
       apikey: ANON_KEY,
       Authorization: `Bearer ${custSession.access_token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ p_booking: { ...p_booking, reference: reference + "C" } }),
+  });
+  check("customer cannot call create_booking_with_availability directly", !custRpc.ok, `${custRpc.status}`);
+
+  const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/create_booking_with_availability`, {
+    method: "POST",
+    headers: {
+      apikey: SERVICE_KEY,
+      Authorization: `Bearer ${SERVICE_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ p_booking }),
@@ -153,8 +166,8 @@ async function run() {
   const rpc2 = await fetch(`${SUPABASE_URL}/rest/v1/rpc/create_booking_with_availability`, {
     method: "POST",
     headers: {
-      apikey: ANON_KEY,
-      Authorization: `Bearer ${custSession.access_token}`,
+      apikey: SERVICE_KEY,
+      Authorization: `Bearer ${SERVICE_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ p_booking: p2 }),
