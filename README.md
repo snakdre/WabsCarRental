@@ -46,7 +46,7 @@ Payment integration is currently mock-only. Stripe keys in `.env.example` are pl
 
 The repo includes migrations under `supabase/migrations/` and seed data under `supabase/seed.runnable.sql`.
 
-1. Apply migrations in order (001 → 026) via the Supabase SQL Editor or the Supabase CLI.
+1. Apply migrations in order (001 → 028) via the Supabase SQL Editor or the Supabase CLI.
 2. Run `scripts/seed-remaining.mjs` after seeding users:
    ```bash
    node scripts/seed-remaining.mjs
@@ -93,7 +93,7 @@ lib/
   utils/                 # pure helpers (format, calendar, roles, session, month-range)
   validators/            # Zod schemas and param parsers
 supabase/
-  migrations/            # ordered SQL migrations (001 → 026)
+  migrations/            # ordered SQL migrations (001 → 028)
   seed.sql, seed.runnable.sql
 scripts/                 # one-off node scripts: seeding, smoke tests, docs server
 docs/superpowers/        # design spec and iterative plans

@@ -4,7 +4,7 @@ import { ChevronLeft } from "lucide-react";
 import { getManagementBookingDetail } from "@/lib/queries/management-bookings";
 import { BookingDetailHeader } from "@/components/management/bookings/booking-detail-header";
 import { BookingSummaryPanel } from "@/components/management/bookings/booking-summary-panel";
-import { StatusHistoryTimeline } from "@/components/management/bookings/status-history-timeline";
+import { StatusHistoryTimeline } from "@/components/shared/status-history-timeline";
 import { StatusActions } from "@/components/management/bookings/status-actions";
 import { NotesEditor } from "@/components/management/bookings/notes-editor";
 

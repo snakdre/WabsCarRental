@@ -1,4 +1,4 @@
-import type { StatusHistoryRow } from "@/lib/queries/management-bookings";
+type StatusHistoryRow = { status: string; note: string | null; created_at: string };
 import { STATUS_LABEL, type BookingStatus } from "@/lib/booking-status";
 
 export function StatusHistoryTimeline({ history }: { history: StatusHistoryRow[] }) {
