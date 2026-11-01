@@ -7,6 +7,11 @@ INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 VALUES ('vehicle-images', 'vehicle-images', TRUE, 10485760, ARRAY['image/jpeg','image/png','image/webp'])
 ON CONFLICT (id) DO NOTHING;
 
+-- SELECT is needed for storage .list() (used to confirm an upload exists before
+-- registering it). Public buckets serve downloads without it, but listing
+-- still goes through storage.objects RLS.
+CREATE POLICY "vehimg_staff_select" ON storage.objects FOR SELECT TO authenticated
+  USING (bucket_id = 'vehicle-images' AND get_user_role(auth.uid()) IN ('manager','admin'));
 CREATE POLICY "vehimg_staff_insert" ON storage.objects FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'vehicle-images' AND get_user_role(auth.uid()) IN ('manager','admin'));
 CREATE POLICY "vehimg_staff_update" ON storage.objects FOR UPDATE TO authenticated
