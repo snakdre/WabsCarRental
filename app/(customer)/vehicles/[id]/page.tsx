@@ -4,6 +4,9 @@ import { Gallery } from "@/components/customer/vehicles/gallery";
 import { SpecsTable } from "@/components/customer/vehicles/specs-table";
 import { FeaturesList } from "@/components/customer/vehicles/features-list";
 import { PricingCard } from "@/components/customer/vehicles/pricing-card";
+import { FavoriteButton } from "@/components/customer/account/favorite-button";
+import { isFavorite } from "@/lib/queries/account";
+import { getCurrentUser } from "@/lib/utils/session";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +16,7 @@ export default async function VehicleDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const detail = await getVehicleById(id);
+  const [detail, user, favorited] = await Promise.all([getVehicleById(id), getCurrentUser(), isFavorite(id)]);
   if (!detail) notFound();
 
   const { vehicle, images, features, location } = detail;
@@ -21,9 +24,12 @@ export default async function VehicleDetailPage({
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-12">
-      <div className="mb-8">
-        <p className="text-gold text-xs uppercase tracking-[0.3em]">{vehicle.category}</p>
-        <h1 className="text-4xl font-bold text-navy mt-1">{heading}</h1>
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <p className="text-gold text-xs uppercase tracking-[0.3em]">{vehicle.category}</p>
+          <h1 className="text-4xl font-bold text-navy mt-1">{heading}</h1>
+        </div>
+        {user && <FavoriteButton vehicleId={vehicle.id} initial={favorited} />}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">

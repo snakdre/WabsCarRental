@@ -28,7 +28,12 @@ export type MockSupabase = {
     auth: {
       getUser: ReturnType<typeof vi.fn>;
     };
+    storage: {
+      from: ReturnType<typeof vi.fn>;
+    };
   };
+  setStorageResponse(op: "upload" | "remove" | "createSignedUrls", response: { data?: unknown; error?: unknown }): void;
+  storageCalls: Array<{ bucket: string; op: string; args: unknown[] }>;
 
   // introspection helpers for assertions
   fromCalls: string[];                            // table names in order
@@ -42,6 +47,8 @@ export function createMockSupabase(): MockSupabase {
   const tableResponses = new Map<string, QueryResult>();
   const rpcResponses = new Map<string, { data?: unknown; error?: unknown }>();
   let currentUser: { id: string; email?: string } | null = null;
+  const storageResponses = new Map<string, { data?: unknown; error?: unknown }>();
+  const storageCalls: Array<{ bucket: string; op: string; args: unknown[] }> = [];
 
   const state: Pick<MockSupabase, "fromCalls" | "insertedRows" | "updatedRows" | "deletedTables" | "rpcCalls"> = {
     fromCalls: [],
@@ -112,6 +119,16 @@ export function createMockSupabase(): MockSupabase {
         Promise.resolve({ data: { user: currentUser }, error: null })
       ),
     },
+    storage: {
+      from: vi.fn((bucket: string) => {
+        const op = (name: string) => vi.fn((...args: unknown[]) => {
+          storageCalls.push({ bucket, op: name, args });
+          const r = storageResponses.get(name) ?? { data: null, error: null };
+          return Promise.resolve({ data: r.data ?? null, error: r.error ?? null });
+        });
+        return { upload: op("upload"), remove: op("remove"), createSignedUrls: op("createSignedUrls") };
+      }),
+    },
   };
 
   return {
@@ -130,5 +147,9 @@ export function createMockSupabase(): MockSupabase {
     setUser(user) {
       currentUser = user;
     },
+    setStorageResponse(op, response) {
+      storageResponses.set(op, response);
+    },
+    storageCalls,
   };
 }

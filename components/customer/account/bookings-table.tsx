@@ -34,7 +34,9 @@ export async function BookingsTable() {
         <tbody>
           {bookings.map(b => (
             <tr key={b.id} data-booking-ref={b.reference} className="border-t border-gray-100">
-              <td className="px-4 py-3 font-mono text-navy">{b.reference}</td>
+              <td className="px-4 py-3 font-mono text-navy">
+                <Link href={`/account/bookings/${b.id}`} className="hover:text-gold underline-offset-2 hover:underline">{b.reference}</Link>
+              </td>
               <td className="px-4 py-3 text-navy">{b.vehicle_year} {b.vehicle_make} {b.vehicle_model}</td>
               <td className="px-4 py-3 text-navy">{b.pickup_date.slice(0, 10)}</td>
               <td className="px-4 py-3 text-navy">{b.return_date.slice(0, 10)}</td>
