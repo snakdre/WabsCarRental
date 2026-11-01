@@ -1,6 +1,11 @@
 import Link from "next/link";
+import { getPublicSettings } from "@/lib/queries/settings";
 
-export function CustomerFooter() {
+export async function CustomerFooter() {
+  const settings = await getPublicSettings().catch(() => null);
+  const name = settings?.business_name ?? "Wabs Car Rental";
+  const email = settings?.business_email ?? "hello@wabscarrental.com";
+  const phone = settings?.business_phone ?? "+1 (555) 000-0000";
   return (
     <footer className="bg-deep text-white mt-24">
       <div className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -31,15 +36,15 @@ export function CustomerFooter() {
         <div>
           <h4 className="text-gold text-sm font-semibold uppercase tracking-wider mb-3">Contact</h4>
           <ul className="space-y-2 text-sm text-text-muted-wabs">
-            <li>hello@wabscarrental.com</li>
-            <li>+1 (555) 000-0000</li>
+            <li><a href={`mailto:${email}`} className="hover:text-gold">{email}</a></li>
+            <li><a href={`tel:${phone.replace(/[^+\d]/g, "")}`} className="hover:text-gold">{phone}</a></li>
             <li>Beverly Hills · Malibu · LAX</li>
           </ul>
         </div>
       </div>
       <div className="border-t border-navy-light">
         <div className="max-w-7xl mx-auto px-6 py-4 text-xs text-text-muted-wabs">
-          © 2026 Wabs Car Rental. All rights reserved.
+          © {new Date().getFullYear()} {name}. All rights reserved.
         </div>
       </div>
     </footer>
