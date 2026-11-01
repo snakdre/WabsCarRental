@@ -32,7 +32,7 @@ export type MockSupabase = {
       from: ReturnType<typeof vi.fn>;
     };
   };
-  setStorageResponse(op: "upload" | "remove" | "createSignedUrls", response: { data?: unknown; error?: unknown }): void;
+  setStorageResponse(op: "upload" | "remove" | "createSignedUrls" | "list", response: { data?: unknown; error?: unknown }): void;
   storageCalls: Array<{ bucket: string; op: string; args: unknown[] }>;
 
   // introspection helpers for assertions
@@ -126,7 +126,13 @@ export function createMockSupabase(): MockSupabase {
           const r = storageResponses.get(name) ?? { data: null, error: null };
           return Promise.resolve({ data: r.data ?? null, error: r.error ?? null });
         });
-        return { upload: op("upload"), remove: op("remove"), createSignedUrls: op("createSignedUrls") };
+        return {
+          upload: op("upload"),
+          remove: op("remove"),
+          createSignedUrls: op("createSignedUrls"),
+          list: op("list"),
+          getPublicUrl: vi.fn((path: string) => ({ data: { publicUrl: `https://cdn.test/${bucket}/${path}` } })),
+        };
       }),
     },
   };

@@ -100,3 +100,44 @@ export async function getManagementVehicleById(id: string): Promise<ManagementVe
     description: v.description,
   };
 }
+
+export type ManagementVehicleImage = {
+  id: string;
+  url: string;
+  alt_text: string | null;
+  is_cover: boolean;
+  sort_order: number;
+};
+
+export async function listVehicleImages(vehicleId: string): Promise<ManagementVehicleImage[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("vehicle_images")
+    .select("id, url, alt_text, is_cover, sort_order")
+    .eq("vehicle_id", vehicleId)
+    .order("sort_order", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as ManagementVehicleImage[];
+}
+
+export type VehicleBookingHistoryItem = {
+  id: string;
+  reference: string;
+  driver_name: string;
+  pickup_date: string;
+  return_date: string;
+  status: string;
+  total_amount: number;
+};
+
+export async function listVehicleBookings(vehicleId: string): Promise<VehicleBookingHistoryItem[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("id, reference, driver_name, pickup_date, return_date, status, total_amount")
+    .eq("vehicle_id", vehicleId)
+    .order("pickup_date", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return ((data ?? []) as VehicleBookingHistoryItem[]).map(b => ({ ...b, total_amount: Number(b.total_amount) }));
+}
