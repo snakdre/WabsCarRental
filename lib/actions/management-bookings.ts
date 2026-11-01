@@ -39,6 +39,12 @@ export async function transitionBookingStatus(formData: FormData): Promise<Actio
     return { error: `Cannot transition from ${STATUS_LABEL[from]} to ${STATUS_LABEL[next_status]}.` };
   }
 
+  // active / completed go through recordPickup / recordReturn (migration 031)
+  // so odometer and fuel are always captured.
+  if (next_status === "active" || next_status === "completed") {
+    return { error: `Use "Record ${next_status === "active" ? "pickup" : "return"}" to mark this booking ${STATUS_LABEL[next_status].toLowerCase()}.` };
+  }
+
   if (next_status === "refunded" && (!note || !note.trim())) {
     return { error: "Refunds require a note.", field: "note" };
   }

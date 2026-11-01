@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { parseListParams } from "@/lib/validators/management-bookings";
 import { listAllBookings } from "@/lib/queries/management-bookings";
 import { BookingsFilters } from "@/components/management/bookings/bookings-filters";
@@ -18,7 +19,12 @@ export default async function ManagementBookingsPage({
     <main className="max-w-7xl mx-auto p-8">
       <div className="mb-6">
         <p className="text-gold text-xs uppercase tracking-[0.3em] mb-2">Management</p>
-        <h1 className="text-3xl font-bold text-navy">Bookings</h1>
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-3xl font-bold text-navy">Bookings</h1>
+          <Link href="/management/bookings/new" className="text-sm bg-gold text-deep font-semibold px-4 py-2 rounded hover:bg-gold-muted" data-testid="new-booking">
+            + New booking
+          </Link>
+        </div>
         <p className="text-text-muted-wabs mt-2">
           {bookings.length} booking{bookings.length === 1 ? "" : "s"}
         </p>

@@ -141,5 +141,7 @@ export async function setDocumentVerified(formData: FormData): Promise<ActionRes
 
   await audit(supabase, user.id, verified ? "document.verify" : "document.unverify", "customer_document", document_id, { verified });
   revalidateCustomer(d.customer_id);
+  // The booking detail page also shows this customer's documents.
+  revalidatePath("/management/bookings/[id]", "page");
   return { success: true };
 }

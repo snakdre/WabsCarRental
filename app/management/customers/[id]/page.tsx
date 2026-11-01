@@ -127,6 +127,12 @@ export default async function ManagementCustomerDetailPage({ params }: { params:
         <aside className="space-y-6">
           <section className="bg-white border border-gray-200 rounded-lg p-6">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted-wabs mb-4">Actions</h2>
+            <Link
+              href={`/management/bookings/new?customer=${c.id}`}
+              className="block text-center text-sm bg-gold text-deep font-semibold px-4 py-2 rounded hover:bg-gold-muted mb-3"
+            >
+              Book for this customer
+            </Link>
             <CustomerStatusControls customerId={c.id} flagged={c.flagged} isActive={c.is_active} />
           </section>
           <section className="bg-white border border-gray-200 rounded-lg p-6">

@@ -144,6 +144,11 @@ export async function createDraftBooking(formData: FormData) {
     extrasWithPrice = d.extras.map(e => ({ extra_id: e.extra_id, quantity: e.quantity, unit_price: byId.get(e.extra_id) ?? 0 }));
   }
 
+  // create_booking_with_availability trusts its payload, so (migration 031)
+  // only the service role may execute it. Everything in p_booking below is
+  // derived server-side: customer_id from the session, prices from calculatePricing.
+  const service = await createServiceClient();
+
   // Attempt booking; retry once on reference collision
   for (let attempt = 0; attempt < 2; attempt++) {
     const reference = generateBookingReference();
@@ -177,7 +182,7 @@ export async function createDraftBooking(formData: FormData) {
       extras: extrasWithPrice,
     };
 
-    const { data: rpcResult, error: rpcErr } = await supabase.rpc("create_booking_with_availability", { p_booking });
+    const { data: rpcResult, error: rpcErr } = await service.rpc("create_booking_with_availability", { p_booking });
     if (!rpcErr) {
       revalidateTag("vehicles");
       redirect(`/checkout/payment?booking_ref=${rpcResult}`);

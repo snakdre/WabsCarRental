@@ -19,8 +19,6 @@ export type DashboardKpis = {
   // booking counts
   pendingBookings: number;
   bookingsThisMonth: number;
-  // revenue
-  revenueThisMonth: number;
   // today's lists
   todayPickups: UpcomingBooking[];
   todayReturns: UpcomingBooking[];
@@ -55,7 +53,6 @@ export async function getDashboardKpis(): Promise<DashboardKpis> {
     maintenanceVehiclesRes,
     pendingBookingsRes,
     bookingsThisMonthRes,
-    revenueRowsRes,
     todayPickupsRes,
     todayReturnsRes,
   ] = await Promise.all([
@@ -69,14 +66,6 @@ export async function getDashboardKpis(): Promise<DashboardKpis> {
       .select("id", { count: "exact", head: true })
       .gte("created_at", startISO)
       .lt("created_at", endISO),
-    // Revenue: fetch rows and sum in JS (PostgREST doesn't easily return server-side SUM).
-    // Exclude cancelled/rejected/refunded statuses.
-    supabase
-      .from("bookings")
-      .select("total_amount, status")
-      .gte("created_at", startISO)
-      .lt("created_at", endISO)
-      .not("status", "in", "(cancelled,rejected,refunded)"),
     // Today's pickups: confirmed or ready_for_pickup
     supabase
       .from("bookings")
@@ -102,14 +91,8 @@ export async function getDashboardKpis(): Promise<DashboardKpis> {
   if (maintenanceVehiclesRes.error) throw maintenanceVehiclesRes.error;
   if (pendingBookingsRes.error) throw pendingBookingsRes.error;
   if (bookingsThisMonthRes.error) throw bookingsThisMonthRes.error;
-  if (revenueRowsRes.error) throw revenueRowsRes.error;
   if (todayPickupsRes.error) throw todayPickupsRes.error;
   if (todayReturnsRes.error) throw todayReturnsRes.error;
-
-  const revenueThisMonth = (revenueRowsRes.data ?? []).reduce(
-    (s, r) => s + Number((r as { total_amount: number | null }).total_amount || 0),
-    0
-  );
 
   return {
     totalVehicles: totalVehiclesRes.count ?? 0,
@@ -118,8 +101,55 @@ export async function getDashboardKpis(): Promise<DashboardKpis> {
     maintenanceVehicles: maintenanceVehiclesRes.count ?? 0,
     pendingBookings: pendingBookingsRes.count ?? 0,
     bookingsThisMonth: bookingsThisMonthRes.count ?? 0,
-    revenueThisMonth,
     todayPickups: mapUpcoming((todayPickupsRes.data ?? []) as unknown as NestedBookingRow[]),
     todayReturns: mapUpcoming((todayReturnsRes.data ?? []) as unknown as NestedBookingRow[]),
   };
+}
+
+export type RevenueMonth = { month: string; revenue: number; bookings: number };
+export type TopVehicle = { vehicle_id: string; label: string; rentals: number; revenue: number };
+export type ActivityItem = {
+  id: string;
+  booking_id: string;
+  reference: string;
+  status: string;
+  note: string | null;
+  created_at: string;
+};
+
+export async function getRevenueTrend(months = 12): Promise<RevenueMonth[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("staff_revenue_by_month", { p_months: months });
+  if (error) throw error;
+  return ((data ?? []) as { month: string; revenue: number; bookings: number }[]).map(r => ({
+    month: r.month,
+    revenue: Number(r.revenue),
+    bookings: Number(r.bookings),
+  }));
+}
+
+export async function getTopVehicles(limit = 5, days = 365): Promise<TopVehicle[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("staff_top_vehicles", { p_limit: limit, p_days: days });
+  if (error) throw error;
+  return ((data ?? []) as TopVehicle[]).map(r => ({ ...r, rentals: Number(r.rentals), revenue: Number(r.revenue) }));
+}
+
+export async function getRecentActivity(limit = 12): Promise<ActivityItem[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("booking_status_history")
+    .select("id, booking_id, status, note, created_at, bookings ( reference )")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  type Row = { id: string; booking_id: string; status: string; note: string | null; created_at: string; bookings: { reference: string } | null };
+  return ((data ?? []) as unknown as Row[]).map(r => ({
+    id: r.id,
+    booking_id: r.booking_id,
+    reference: r.bookings?.reference ?? "—",
+    status: r.status,
+    note: r.note,
+    created_at: r.created_at,
+  }));
 }
