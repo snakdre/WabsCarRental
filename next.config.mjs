@@ -11,6 +11,8 @@ const nextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
+      // Uploaded fleet photos (public vehicle-images bucket, migration 030).
+      { protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/public/**" },
     ],
   },
 };
