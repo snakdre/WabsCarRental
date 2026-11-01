@@ -14,7 +14,11 @@ vi.mock("@/lib/utils/roles", async () => {
   return { ...actual, getUserRole: () => Promise.resolve(roleRef.value) };
 });
 vi.mock("@/lib/pricing", () => ({ calculatePricing: (...a: unknown[]) => pricingStub(...a) }));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+  unstable_cache: <T,>(fn: T) => fn,
+}));
 
 import { recordPickup, recordReturn, reassignVehicle, createManualBooking } from "./booking-ops";
 

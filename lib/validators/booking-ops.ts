@@ -64,8 +64,11 @@ export function ageAt(dob: string, at: string): number {
 }
 
 // Business rules shared with checkout (spec §6). Returns [message, field] or null.
-export function checkDriverRules(d: { pickup_date: string; driver_dob: string; license_expiry: string }): [string, string] | null {
-  if (ageAt(d.driver_dob, d.pickup_date) < 25) return ["Driver must be at least 25 years old at pickup.", "driver_dob"];
+export function checkDriverRules(
+  d: { pickup_date: string; driver_dob: string; license_expiry: string },
+  minAge = 25,
+): [string, string] | null {
+  if (ageAt(d.driver_dob, d.pickup_date) < minAge) return [`Driver must be at least ${minAge} years old at pickup.`, "driver_dob"];
   if (d.license_expiry <= d.pickup_date) return ["Licence must be valid past the pickup date.", "license_expiry"];
   return null;
 }

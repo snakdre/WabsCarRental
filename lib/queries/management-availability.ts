@@ -7,6 +7,7 @@ export type AvailabilityBlock = {
   end_date: string; // YYYY-MM-DD
   type: "booking" | "maintenance" | "blocked";
   reason: string | null;
+  reference_id: string | null;
 };
 
 export type CalendarVehicle = {
@@ -39,7 +40,7 @@ export async function getCalendarData(year: number, month: number): Promise<Cale
       .order("year", { ascending: true }),
     supabase
       .from("vehicle_availability")
-      .select("id, vehicle_id, start_date, end_date, type, reason")
+      .select("id, vehicle_id, start_date, end_date, type, reason, reference_id")
       .lte("start_date", monthEnd)
       .gte("end_date", monthStart),
   ]);
@@ -51,4 +52,29 @@ export async function getCalendarData(year: number, month: number): Promise<Cale
   const blocks = (blocksRes.data ?? []) as AvailabilityBlock[];
 
   return { vehicles, blocks };
+}
+
+// Range variant used by both month and week views (inclusive dates).
+export async function getCalendarRange(from: string, to: string): Promise<CalendarData> {
+  const supabase = await createClient();
+  const [vehiclesRes, blocksRes] = await Promise.all([
+    supabase
+      .from("vehicles")
+      .select("id, make, model, year, trim")
+      .not("status", "in", '("inactive","draft")')
+      .order("make", { ascending: true })
+      .order("model", { ascending: true })
+      .order("year", { ascending: true }),
+    supabase
+      .from("vehicle_availability")
+      .select("id, vehicle_id, start_date, end_date, type, reason, reference_id")
+      .lte("start_date", to)
+      .gte("end_date", from),
+  ]);
+  if (vehiclesRes.error) throw vehiclesRes.error;
+  if (blocksRes.error) throw blocksRes.error;
+  return {
+    vehicles: (vehiclesRes.data ?? []) as CalendarVehicle[],
+    blocks: (blocksRes.data ?? []) as AvailabilityBlock[],
+  };
 }

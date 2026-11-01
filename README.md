@@ -46,7 +46,7 @@ Payment integration is currently mock-only. Stripe keys in `.env.example` are pl
 
 The repo includes migrations under `supabase/migrations/` and seed data under `supabase/seed.runnable.sql`.
 
-1. Apply migrations in order (001 → 031) via the Supabase SQL Editor or the Supabase CLI.
+1. Apply migrations in order (001 → 032) via the Supabase SQL Editor or the Supabase CLI.
 2. Run `scripts/seed-remaining.mjs` after seeding users:
    ```bash
    node scripts/seed-remaining.mjs
@@ -93,7 +93,7 @@ lib/
   utils/                 # pure helpers (format, calendar, roles, session, month-range)
   validators/            # Zod schemas and param parsers
 supabase/
-  migrations/            # ordered SQL migrations (001 → 031)
+  migrations/            # ordered SQL migrations (001 → 032)
   seed.sql, seed.runnable.sql
 scripts/                 # one-off node scripts: seeding, smoke tests, docs server
 docs/superpowers/        # design spec and iterative plans
@@ -127,6 +127,18 @@ docker run -p 3000:3000 \
 ```
 
 The Dockerfile builds on `node:22-alpine` and runs the standalone server as an unprivileged `nextjs` user on port 3000.
+
+### Docker Compose (app + Nginx)
+
+`docker-compose.yml` runs the app behind Nginx, which terminates TLS, redirects HTTP to HTTPS, sets security headers, caches `/_next/static`, rate-limits auth pages, and allows 12 MB request bodies for document uploads.
+
+```bash
+cp .env.example .env               # fill in Supabase keys; NEXT_PUBLIC_APP_URL=https://your-domain
+./deploy/nginx/gen-dev-cert.sh     # local only: self-signed cert in deploy/nginx/certs/
+docker compose up -d --build
+```
+
+For production, put real certificates at `deploy/nginx/certs/fullchain.pem` and `privkey.pem` (for example from Let's Encrypt). The app exposes `GET /api/health` for container health checks.
 
 ### Other targets
 

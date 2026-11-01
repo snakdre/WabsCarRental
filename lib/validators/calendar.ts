@@ -19,3 +19,24 @@ export function parseCalendarParams(
   }
   return { year: parsed.data.year, month: parsed.data.month };
 }
+
+export type CalendarView =
+  | { view: "month"; year: number; month: number }
+  | { view: "week"; start: string }; // Monday, YYYY-MM-DD
+
+const weekStart = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+// ?view=week&start=YYYY-MM-DD (snapped to Monday by the caller) or the month params.
+export function parseCalendarView(
+  raw: Record<string, string | string[] | undefined>,
+  today: string,
+): CalendarView {
+  const v = Array.isArray(raw.view) ? raw.view[0] : raw.view;
+  if (v === "week") {
+    const s = Array.isArray(raw.start) ? raw.start[0] : raw.start;
+    const ok = weekStart.safeParse(s);
+    const start = ok.success && !Number.isNaN(Date.parse(ok.data)) ? ok.data : today;
+    return { view: "week", start };
+  }
+  return { view: "month", ...parseCalendarParams(raw) };
+}

@@ -5,6 +5,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getUserRole, isManagerOrAdmin } from "@/lib/utils/roles";
 import { calculatePricing } from "@/lib/pricing";
 import { generateBookingReference } from "@/lib/booking-reference";
+import { getMinDriverAge } from "@/lib/queries/settings";
 import {
   recordHandoverSchema, reassignSchema, manualBookingSchema, checkDriverRules,
 } from "@/lib/validators/booking-ops";
@@ -126,7 +127,7 @@ export async function createManualBooking(formData: FormData): Promise<ActionRes
 
   const todayISO = new Date().toISOString().slice(0, 10);
   if (d.pickup_date < todayISO) return { error: "Pickup date can't be in the past.", field: "pickup_date" };
-  const rule = checkDriverRules(d);
+  const rule = checkDriverRules(d, await getMinDriverAge());
   if (rule) return { error: rule[0], field: rule[1] };
 
   const supabase = await createClient();

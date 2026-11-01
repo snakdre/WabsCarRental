@@ -11,3 +11,5 @@ scripts/smoke-test-auth.mjs
 scripts/docs-server.mjs
 .vscode
 .idea
+deploy
+docker-compose.yml

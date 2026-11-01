@@ -5,6 +5,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { calculatePricing } from "@/lib/pricing";
 import { generateBookingReference } from "@/lib/booking-reference";
+import { getMinDriverAge } from "@/lib/queries/settings";
 import { paymentSchema } from "@/lib/validators/checkout";
 import { z } from "zod";
 
@@ -76,8 +77,9 @@ export async function createDraftBooking(formData: FormData) {
   if (d.pickup_date < todayISO) {
     return { error: "Pickup date must be in the future.", field: "pickup_date" };
   }
-  if (computeAgeAt(d.driver_dob, d.pickup_date) < 25) {
-    return { error: "Driver must be at least 25 years old at pickup.", field: "driver_dob" };
+  const minAge = await getMinDriverAge();
+  if (computeAgeAt(d.driver_dob, d.pickup_date) < minAge) {
+    return { error: `Driver must be at least ${minAge} years old at pickup.`, field: "driver_dob" };
   }
   if (d.license_expiry <= d.pickup_date) {
     return { error: "License must be valid past the pickup date.", field: "license_expiry" };
