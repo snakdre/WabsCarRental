@@ -8,6 +8,7 @@ import { generateBookingReference } from "@/lib/booking-reference";
 import { getMinDriverAge } from "@/lib/queries/settings";
 import { paymentSchema } from "@/lib/validators/checkout";
 import { z } from "zod";
+import { uuidLike } from "@/lib/validators/shared";
 
 function luhn(num: string): boolean {
   const digits = num.replace(/\D/g, "");
@@ -25,11 +26,11 @@ function luhn(num: string): boolean {
 // Composite schema for createDraftBooking (mirrors the URL params carried
 // from step 1-3 plus terms_accepted on step 4).
 const createDraftSchema = z.object({
-  vehicle_id: z.string().uuid(),
+  vehicle_id: uuidLike,
   pickup_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   return_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   pickup_method: z.enum(["pickup", "delivery"]),
-  pickup_location_id: z.string().uuid().nullable().optional(),
+  pickup_location_id: uuidLike.nullable().optional(),
   driver_name: z.string().min(1),
   driver_email: z.string().email(),
   driver_phone: z.string().min(7),
@@ -37,8 +38,8 @@ const createDraftSchema = z.object({
   license_number: z.string().min(1),
   license_expiry: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   license_region: z.string().min(1),
-  protection_plan_id: z.string().uuid().nullable().optional(),
-  extras: z.array(z.object({ extra_id: z.string().uuid(), quantity: z.number().int().positive() })).default([]),
+  protection_plan_id: uuidLike.nullable().optional(),
+  extras: z.array(z.object({ extra_id: uuidLike, quantity: z.number().int().positive() })).default([]),
   promo_code: z.string().nullable().optional(),
   special_requests: z.string().max(500).nullable().optional(),
   terms_accepted: z.literal("on"),

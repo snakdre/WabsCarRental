@@ -134,10 +134,15 @@ export async function createManualBooking(formData: FormData): Promise<ActionRes
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in" };
 
-  const [{ data: customerRole }, { data: vehicle, error: vErr }] = await Promise.all([
-    supabase.from("roles").select("role").eq("user_id", d.customer_id).maybeSingle(),
+  // RLS on `roles` lets users read only their own row (admins read all), so a
+  // manager's session can't see the customer's role. The caller is already
+  // verified as staff above; check the target's role with the service client.
+  const service = await createServiceClient();
+  const [{ data: customerRole, error: rErr }, { data: vehicle, error: vErr }] = await Promise.all([
+    service.from("roles").select("role").eq("user_id", d.customer_id).maybeSingle(),
     supabase.from("vehicles").select("status, min_rental_days, max_rental_days").eq("id", d.vehicle_id).maybeSingle(),
   ]);
+  if (rErr) throw rErr;
   if (vErr) throw vErr;
   if ((customerRole as { role?: string } | null)?.role !== "customer") return { error: "Customer not found", field: "customer_id" };
   const v = vehicle as { status: string; min_rental_days: number | null; max_rental_days: number | null } | null;
@@ -171,8 +176,7 @@ export async function createManualBooking(formData: FormData): Promise<ActionRes
     return { error: `Maximum rental is ${v.max_rental_days} days.`, field: "return_date" };
   }
 
-  // Service role: create_booking_with_availability is service-only since 031.
-  const service = await createServiceClient();
+  // Service role (created above): create_booking_with_availability is service-only since 031.
   let created: { id: string; reference: string } | null = null;
   for (let attempt = 0; attempt < 2 && !created; attempt++) {
     const reference = generateBookingReference();
