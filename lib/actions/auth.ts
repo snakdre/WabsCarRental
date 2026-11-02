@@ -13,7 +13,13 @@ export async function signIn(formData: FormData) {
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) return { error: error.message };
+  if (error) {
+    // Deactivated customers are banned in Supabase Auth (setCustomerActive).
+    if ((error as { code?: string }).code === "user_banned" || /banned/i.test(error.message)) {
+      return { error: "This account has been deactivated. Please contact us if you think this is a mistake." };
+    }
+    return { error: error.message };
+  }
 
   redirect("/account");
 }

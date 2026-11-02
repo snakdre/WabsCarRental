@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { uuidLike } from "@/lib/validators/shared";
 import { DOCUMENTS_BUCKET } from "@/lib/validators/account";
-import type { CustomerListParams } from "@/lib/validators/management-customers";
+import { CUSTOMERS_PAGE_SIZE, type CustomerListParams } from "@/lib/validators/management-customers";
 
 export type CustomerListItem = {
   id: string;
@@ -18,19 +18,31 @@ export type CustomerListItem = {
   unverified_documents: number;
 };
 
-export async function listCustomers(params: CustomerListParams): Promise<CustomerListItem[]> {
+export type CustomerPage = { customers: CustomerListItem[]; total: number; page: number; pageSize: number };
+
+export async function listCustomers(params: CustomerListParams, pageSize = CUSTOMERS_PAGE_SIZE): Promise<CustomerPage> {
   const supabase = await createClient();
+  const page = params.page ?? 1;
   const { data, error } = await supabase.rpc("staff_list_customers", {
     p_search: params.search ?? null,
     p_flagged: params.flagged === undefined ? null : params.flagged === "yes",
+    p_limit: pageSize,
+    p_offset: (page - 1) * pageSize,
   });
   if (error) throw error;
-  return ((data ?? []) as CustomerListItem[]).map(r => ({
-    ...r,
-    booking_count: Number(r.booking_count),
-    total_spent: Number(r.total_spent),
-    unverified_documents: Number(r.unverified_documents),
-  }));
+  const rows = (data ?? []) as (CustomerListItem & { total_count: number })[];
+  return {
+    customers: rows.map(r => ({
+      id: r.id, email: r.email, first_name: r.first_name, last_name: r.last_name, phone: r.phone,
+      flagged: r.flagged, is_active: r.is_active, created_at: r.created_at, last_booking_at: r.last_booking_at,
+      booking_count: Number(r.booking_count),
+      total_spent: Number(r.total_spent),
+      unverified_documents: Number(r.unverified_documents),
+    })),
+    total: rows.length ? Number(rows[0].total_count) : 0,
+    page,
+    pageSize,
+  };
 }
 
 export type CustomerDocument = {

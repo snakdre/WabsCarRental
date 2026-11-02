@@ -199,22 +199,35 @@ export async function getManagementBookingDetail(id: string): Promise<Management
   };
 }
 
-export type BookableVehicle = { id: string; label: string; status: string; daily_price: number };
+export type BookableVehicle = {
+  id: string;
+  label: string;
+  status: string;
+  daily_price: number;
+  location: { id: string; name: string | null; delivery_available: boolean; delivery_fee: number } | null;
+};
 
 // Vehicles staff can move a booking to or create a booking on.
 export async function listBookableVehicles(): Promise<BookableVehicle[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("vehicles")
-    .select("id, year, make, model, trim, status, daily_price")
+    .select("id, year, make, model, trim, status, daily_price, vehicle_locations ( id, name, delivery_available, delivery_fee )")
     .not("status", "in", "(draft,inactive,maintenance)")
     .order("make", { ascending: true });
   if (error) throw error;
-  return ((data ?? []) as { id: string; year: number; make: string; model: string; trim: string | null; status: string; daily_price: number }[])
-    .map(v => ({
+  type Row = {
+    id: string; year: number; make: string; model: string; trim: string | null; status: string; daily_price: number;
+    vehicle_locations: { id: string; name: string | null; delivery_available: boolean; delivery_fee: number }[] | null;
+  };
+  return ((data ?? []) as unknown as Row[]).map(v => {
+    const loc = v.vehicle_locations?.[0] ?? null;
+    return {
       id: v.id,
       label: `${v.year} ${v.make} ${v.model}${v.trim ? " " + v.trim : ""}`,
       status: v.status,
       daily_price: Number(v.daily_price),
-    }));
+      location: loc ? { ...loc, delivery_fee: Number(loc.delivery_fee) } : null,
+    };
+  });
 }

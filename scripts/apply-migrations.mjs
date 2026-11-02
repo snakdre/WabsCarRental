@@ -37,6 +37,7 @@ const MARKERS = {
   "030_vehicle_images_management.sql": `SELECT to_regprocedure('public.duplicate_vehicle(uuid)') IS NOT NULL AS ok`,
   "031_dashboard_and_booking_ops.sql": `SELECT to_regprocedure('public.staff_record_pickup(uuid,integer,integer,text)') IS NOT NULL AS ok`,
   "032_maintenance_and_settings.sql": `SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'maintenance_records' AND column_name = 'availability_id') AS ok`,
+  "033_customer_list_pagination.sql": `SELECT to_regprocedure('public.staff_list_customers(text,boolean,integer,integer)') IS NOT NULL AS ok`,
 };
 const ORDER = Object.keys(MARKERS);
 

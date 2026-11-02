@@ -44,7 +44,7 @@ export function CustomerStatusControls({
       </Button>
       <Button
         onClick={() => {
-          if (isActive && !confirm("Deactivate this customer? They'll keep their history but be marked inactive.")) return;
+          if (isActive && !confirm("Deactivate this customer? They'll be signed out and won't be able to sign in until reactivated. Their bookings and history are kept.")) return;
           run(() => setCustomerActive(form({ customer_id: customerId, is_active: String(!isActive) })));
         }}
         disabled={isPending}
