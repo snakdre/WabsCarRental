@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import {
   setCustomerFlagSchema,
   setCustomerActiveSchema,
@@ -72,13 +72,34 @@ export async function setCustomerActive(formData: FormData): Promise<ActionResul
   if (!user) return { error: error! };
 
   const { customer_id, is_active } = parsed.data;
+  if (customer_id === user.id) return { error: "You can't deactivate your own account." };
+
+  // Only customer accounts can be deactivated from here. RLS hides other
+  // users' roles from managers, so look the target up with the service client.
+  const service = await createServiceClient();
+  const { data: target, error: roleErr } = await service
+    .from("roles").select("role").eq("user_id", customer_id).maybeSingle();
+  if (roleErr) throw roleErr;
+  if ((target as { role?: string } | null)?.role !== "customer") return { error: "Customer not found" };
+
+  // Ban / unban in Supabase Auth so a deactivated customer can't sign in and
+  // can't refresh an existing session. "876000h" is ~100 years; "none" lifts it.
+  const { error: banErr } = await service.auth.admin.updateUserById(customer_id, {
+    ban_duration: is_active ? "none" : "876000h",
+  });
+  if (banErr) return { error: `Couldn't update sign-in access: ${banErr.message}` };
+
   const { error: updErr } = await supabase
     .from("profiles")
     .update({ is_active, updated_at: new Date().toISOString() })
     .eq("id", customer_id);
-  if (updErr) throw updErr;
+  if (updErr) {
+    // Keep auth and profile consistent: undo the ban change before failing.
+    await service.auth.admin.updateUserById(customer_id, { ban_duration: is_active ? "876000h" : "none" });
+    throw updErr;
+  }
 
-  await audit(supabase, user.id, is_active ? "customer.activate" : "customer.deactivate", "customer", customer_id, { is_active });
+  await audit(supabase, user.id, is_active ? "customer.activate" : "customer.deactivate", "customer", customer_id, { is_active, sign_in: is_active ? "allowed" : "banned" });
   revalidateCustomer(customer_id);
   return { success: true };
 }

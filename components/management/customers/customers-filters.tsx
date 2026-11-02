@@ -25,7 +25,10 @@ export function CustomersFilters() {
       const next = new URLSearchParams(params.toString());
       if (search) next.set("search", search);
       else next.delete("search");
-      if (next.toString() !== params.toString()) router.push(`/management/customers?${next.toString()}`);
+      if (next.get("search") !== params.get("search")) {
+        next.delete("page"); // new search → back to page 1
+        router.push(`/management/customers?${next.toString()}`);
+      }
     }, 400);
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -35,6 +38,7 @@ export function CustomersFilters() {
     const next = new URLSearchParams(params.toString());
     if (key) next.set("flagged", key);
     else next.delete("flagged");
+    next.delete("page"); // new filter → back to page 1
     const qs = next.toString();
     return `/management/customers${qs ? `?${qs}` : ""}`;
   };

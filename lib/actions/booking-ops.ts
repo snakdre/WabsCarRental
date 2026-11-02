@@ -21,6 +21,13 @@ function str(fd: FormData, k: string): string {
   return String(fd.get(k) ?? "");
 }
 
+// The form posts extras as a JSON array; anything unparsable becomes a value
+// zod will reject with a field error rather than a thrown exception.
+function parseExtras(raw: string): unknown {
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return "invalid"; }
+}
+
 function revalidateBooking(id: string) {
   revalidateTag("vehicles");
   revalidatePath("/management");
@@ -110,6 +117,7 @@ export async function createManualBooking(formData: FormData): Promise<ActionRes
     return_date: str(formData, "return_date"),
     pickup_method: str(formData, "pickup_method") || "pickup",
     pickup_location_id: str(formData, "pickup_location_id") || null,
+    extras: parseExtras(str(formData, "extras")),
     driver_name: str(formData, "driver_name"),
     driver_email: str(formData, "driver_email"),
     driver_phone: str(formData, "driver_phone"),
@@ -153,8 +161,12 @@ export async function createManualBooking(formData: FormData): Promise<ActionRes
   if (d.pickup_method === "delivery") {
     if (!d.pickup_location_id) return { error: "Delivery location required.", field: "pickup_location_id" };
     const { data: loc } = await supabase
-      .from("vehicle_locations").select("delivery_available").eq("id", d.pickup_location_id).maybeSingle();
-    if (!(loc as { delivery_available?: boolean } | null)?.delivery_available) {
+      .from("vehicle_locations").select("delivery_available, vehicle_id").eq("id", d.pickup_location_id).maybeSingle();
+    const l = loc as { delivery_available?: boolean; vehicle_id?: string } | null;
+    if (!l || l.vehicle_id !== d.vehicle_id) {
+      return { error: "That location doesn't belong to this vehicle.", field: "pickup_location_id" };
+    }
+    if (!l.delivery_available) {
       return { error: "This location does not offer delivery.", field: "pickup_location_id" };
     }
   }
@@ -166,7 +178,7 @@ export async function createManualBooking(formData: FormData): Promise<ActionRes
     pickup_method: d.pickup_method,
     pickup_location_id: d.pickup_location_id,
     protection_plan_id: d.protection_plan_id,
-    extras: [],
+    extras: d.extras,
     promo_code: null,
   });
   if (v.min_rental_days && pricing.rental_days < v.min_rental_days) {
@@ -174,6 +186,17 @@ export async function createManualBooking(formData: FormData): Promise<ActionRes
   }
   if (v.max_rental_days && pricing.rental_days > v.max_rental_days) {
     return { error: `Maximum rental is ${v.max_rental_days} days.`, field: "return_date" };
+  }
+
+  // Unit prices come from the database, never the form. Only active extras.
+  let extrasWithPrice: { extra_id: string; quantity: number; unit_price: number }[] = [];
+  if (d.extras.length > 0) {
+    const { data: rows, error: exErr } = await supabase
+      .from("extras").select("id, price").eq("is_active", true).in("id", d.extras.map(e => e.extra_id));
+    if (exErr) throw exErr;
+    const byId = new Map(((rows ?? []) as { id: string; price: number }[]).map(r => [r.id, Number(r.price)]));
+    if (d.extras.some(e => !byId.has(e.extra_id))) return { error: "One of the extras is no longer available.", field: "extras" };
+    extrasWithPrice = d.extras.map(e => ({ ...e, unit_price: byId.get(e.extra_id)! }));
   }
 
   // Service role (created above): create_booking_with_availability is service-only since 031.
@@ -208,7 +231,7 @@ export async function createManualBooking(formData: FormData): Promise<ActionRes
         protection_plan_id: d.protection_plan_id ?? "",
         promo_code_id: "",
         special_requests: d.special_requests ?? "",
-        extras: [],
+        extras: extrasWithPrice,
       },
     });
     if (!rpcErr) {

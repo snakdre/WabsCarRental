@@ -139,4 +139,61 @@ describe("createManualBooking", () => {
     expect(r.field).toBe("pickup_date");
     expect(supabaseStub.insertedRows["payments"]).toBeUndefined();
   });
+
+  describe("delivery and extras", () => {
+    const EXTRA_A = "22222222-0000-0000-0000-000000000001";
+    const EXTRA_B = "22222222-0000-0000-0000-000000000004";
+    const LOCATION = "33333333-0000-0000-0000-000000000001";
+    function ready() {
+      supabaseStub.setTableResponse("roles", { data: { role: "customer" }, error: null });
+      supabaseStub.setTableResponse("vehicles", { data: { status: "available", min_rental_days: 1, max_rental_days: null }, error: null });
+      supabaseStub.setTableResponse("bookings", { data: { id: BOOKING, reference: "WBS-2026-ABCDEF" }, error: null });
+    }
+
+    it("prices extras from the database, not the form", async () => {
+      ready();
+      supabaseStub.setTableResponse("extras", { data: [{ id: EXTRA_A, price: 15 }, { id: EXTRA_B, price: 85 }], error: null });
+      const extras = JSON.stringify([{ extra_id: EXTRA_A, quantity: 2 }, { extra_id: EXTRA_B, quantity: 1, unit_price: 0.01 }]);
+      expect(await createManualBooking(fd({ ...valid(), extras }))).toEqual({ success: true, booking_id: BOOKING });
+      expect(pricingStub.mock.calls[0][0]).toMatchObject({
+        extras: [{ extra_id: EXTRA_A, quantity: 2 }, { extra_id: EXTRA_B, quantity: 1 }],
+      });
+      const p = (supabaseStub.rpcCalls.find(c => c.fn === "create_booking_with_availability")!.args as { p_booking: { extras: unknown } }).p_booking;
+      expect(p.extras).toEqual([
+        { extra_id: EXTRA_A, quantity: 2, unit_price: 15 },
+        { extra_id: EXTRA_B, quantity: 1, unit_price: 85 },
+      ]);
+    });
+
+    it("rejects an inactive or unknown extra", async () => {
+      ready();
+      supabaseStub.setTableResponse("extras", { data: [{ id: EXTRA_A, price: 15 }], error: null });
+      const extras = JSON.stringify([{ extra_id: EXTRA_A, quantity: 1 }, { extra_id: EXTRA_B, quantity: 1 }]);
+      const r = await createManualBooking(fd({ ...valid(), extras }));
+      expect(r).toEqual({ error: "One of the extras is no longer available.", field: "extras" });
+      expect(supabaseStub.rpcCalls).toEqual([]);
+    });
+
+    it("rejects duplicate extras and malformed JSON with a field error", async () => {
+      ready();
+      const dup = JSON.stringify([{ extra_id: EXTRA_A, quantity: 1 }, { extra_id: EXTRA_A, quantity: 2 }]);
+      expect((await createManualBooking(fd({ ...valid(), extras: dup }))).field).toBe("extras");
+      expect((await createManualBooking(fd({ ...valid(), extras: "{not json" }))).field).toBe("extras");
+    });
+
+    it("refuses delivery from a location that belongs to another vehicle", async () => {
+      ready();
+      supabaseStub.setTableResponse("vehicle_locations", { data: { delivery_available: true, vehicle_id: "someone-else" }, error: null });
+      const r = await createManualBooking(fd({ ...valid(), pickup_method: "delivery", pickup_location_id: LOCATION }));
+      expect(r).toEqual({ error: "That location doesn't belong to this vehicle.", field: "pickup_location_id" });
+    });
+
+    it("books delivery when the vehicle's location offers it", async () => {
+      ready();
+      supabaseStub.setTableResponse("vehicle_locations", { data: { delivery_available: true, vehicle_id: VEHICLE }, error: null });
+      const r = await createManualBooking(fd({ ...valid(), pickup_method: "delivery", pickup_location_id: LOCATION }));
+      expect(r).toEqual({ success: true, booking_id: BOOKING });
+      expect(pricingStub.mock.calls[0][0]).toMatchObject({ pickup_method: "delivery", pickup_location_id: LOCATION });
+    });
+  });
 });

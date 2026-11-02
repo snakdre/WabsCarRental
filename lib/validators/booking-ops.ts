@@ -43,6 +43,12 @@ export const manualBookingSchema = z
     license_region: z.string().trim().min(1, "Issuing region required").max(50),
     protection_plan_id: uuidLike.nullable(),
     special_requests: z.string().trim().max(500).nullable(),
+    // Same shape checkout sends: [{ extra_id, quantity }], one entry per extra.
+    extras: z
+      .array(z.object({ extra_id: uuidLike, quantity: z.number().int().min(1).max(10) }))
+      .max(20)
+      .refine(list => new Set(list.map(e => e.extra_id)).size === list.length, "Each extra can only be added once")
+      .default([]),
     initial_status: z.enum(["pending", "confirmed"]),
     payment_method: z.enum(["none", "cash"]),
   })

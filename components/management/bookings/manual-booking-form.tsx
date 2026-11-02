@@ -4,44 +4,67 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createManualBooking } from "@/lib/actions/booking-ops";
 import type { BookableVehicle } from "@/lib/queries/management-bookings";
-import type { CustomerListItem } from "@/lib/queries/management-customers";
-import type { ProtectionPlanOption } from "@/lib/queries/extras";
+import type { ExtraOption, ProtectionPlanOption } from "@/lib/queries/extras";
+import type { CustomerOption } from "@/lib/actions/customer-lookup";
+import { CustomerPicker, customerName } from "./customer-picker";
 import { Button } from "@/components/ui/button";
 
 const inputCls =
   "w-full border border-gray-300 rounded px-3 py-2 text-sm text-navy focus:border-gold focus:outline-none bg-white";
 
-function Field({ label, error, children }: { label: string; error?: boolean; children: React.ReactNode }) {
+// `group` renders a fieldset instead of a <label>, for fields that contain
+// their own labels or several controls (nested labels misroute clicks).
+function Field({ label, error, group, children }: { label: string; error?: boolean; group?: boolean; children: React.ReactNode }) {
+  const caption = (
+    <span className={`block text-xs font-semibold uppercase tracking-wider mb-1 ${error ? "text-red-600" : "text-text-muted-wabs"}`}>
+      {label}
+    </span>
+  );
+  if (group) {
+    return (
+      <fieldset className="block min-w-0">
+        <legend className="contents">{caption}</legend>
+        {children}
+      </fieldset>
+    );
+  }
   return (
     <label className="block">
-      <span className={`block text-xs font-semibold uppercase tracking-wider mb-1 ${error ? "text-red-600" : "text-text-muted-wabs"}`}>
-        {label}
-      </span>
+      {caption}
       {children}
     </label>
   );
 }
 
 export function ManualBookingForm({
-  customers, vehicles, plans, presetCustomerId,
+  vehicles, plans, extras, presetCustomer,
 }: {
-  customers: CustomerListItem[];
   vehicles: BookableVehicle[];
   plans: ProtectionPlanOption[];
-  presetCustomerId?: string;
+  extras: ExtraOption[];
+  presetCustomer?: CustomerOption | null;
 }) {
   const router = useRouter();
-  const [customerId, setCustomerId] = useState(presetCustomerId ?? "");
+  const [customer, setCustomer] = useState<CustomerOption | null>(presetCustomer ?? null);
+  const [vehicleId, setVehicleId] = useState("");
+  const [method, setMethod] = useState<"pickup" | "delivery">("pickup");
+  const [qty, setQty] = useState<Record<string, number>>({});
   const [status, setStatus] = useState<"pending" | "confirmed">("confirmed");
   const [error, setError] = useState<{ message: string; field?: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const customer = useMemo(() => customers.find(c => c.id === customerId), [customers, customerId]);
+  const vehicle = useMemo(() => vehicles.find(v => v.id === vehicleId) ?? null, [vehicles, vehicleId]);
+  const canDeliver = !!vehicle?.location?.delivery_available;
+  const effectiveMethod = canDeliver ? method : "pickup";
+  const chosenExtras = Object.entries(qty).filter(([, n]) => n > 0).map(([extra_id, quantity]) => ({ extra_id, quantity }));
   const bad = (f: string) => error?.field === f;
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    fd.set("pickup_method", effectiveMethod);
+    fd.set("pickup_location_id", effectiveMethod === "delivery" ? vehicle?.location?.id ?? "" : "");
+    fd.set("extras", JSON.stringify(chosenExtras));
     setError(null);
     startTransition(async () => {
       const res = await createManualBooking(fd);
@@ -58,24 +81,20 @@ export function ManualBookingForm({
     <form onSubmit={onSubmit} className="space-y-6" data-testid="manual-booking-form">
       <section className="bg-white border border-gray-200 rounded-lg p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
         <h2 className="md:col-span-2 text-sm font-semibold uppercase tracking-wider text-text-muted-wabs">Customer &amp; vehicle</h2>
-        <Field label="Customer" error={bad("customer_id")}>
-          <select name="customer_id" value={customerId} onChange={e => setCustomerId(e.target.value)} required className={inputCls}>
-            <option value="">Choose a customer…</option>
-            {customers.map(c => (
-              <option key={c.id} value={c.id}>
-                {[c.first_name, c.last_name].filter(Boolean).join(" ") || c.email} · {c.email}{c.flagged ? " ⚑" : ""}
-              </option>
-            ))}
-          </select>
+        <Field label="Customer" error={bad("customer_id")} group>
+          <CustomerPicker value={customer} onChange={setCustomer} invalid={bad("customer_id")} />
         </Field>
         <Field label="Vehicle" error={bad("vehicle_id")}>
-          <select name="vehicle_id" required className={inputCls} defaultValue="">
+          <select name="vehicle_id" required className={inputCls} value={vehicleId} onChange={e => setVehicleId(e.target.value)}>
             <option value="">Choose a vehicle…</option>
             {vehicles.map(v => <option key={v.id} value={v.id}>{v.label} · ${v.daily_price}/day</option>)}
           </select>
         </Field>
         {customer?.flagged && (
           <p className="md:col-span-2 text-sm bg-red-50 text-red-700 rounded px-3 py-2">This customer is flagged. Check their profile before booking.</p>
+        )}
+        {customer && !customer.is_active && (
+          <p className="md:col-span-2 text-sm bg-gray-100 text-gray-700 rounded px-3 py-2">This customer is deactivated and can&apos;t sign in, so they won&apos;t see this booking online.</p>
         )}
         <Field label="Pickup date" error={bad("pickup_date")}>
           <input name="pickup_date" type="date" required className={inputCls} />
@@ -89,13 +108,48 @@ export function ManualBookingForm({
             {plans.map(p => <option key={p.id} value={p.id}>{p.name} · ${p.daily_price}/day</option>)}
           </select>
         </Field>
-        <input type="hidden" name="pickup_method" value="pickup" />
+        <Field label="Handover" error={bad("pickup_location_id")} group>
+          <div className="flex flex-wrap gap-4 py-2 text-sm text-navy">
+            <label className="inline-flex items-center gap-2">
+              <input type="radio" name="method_choice" checked={effectiveMethod === "pickup"} onChange={() => setMethod("pickup")} />
+              Pickup{vehicle?.location?.name ? ` at ${vehicle.location.name}` : ""}
+            </label>
+            <label className={`inline-flex items-center gap-2 ${canDeliver ? "" : "opacity-40"}`}>
+              <input type="radio" name="method_choice" disabled={!canDeliver} checked={effectiveMethod === "delivery"} onChange={() => setMethod("delivery")} data-testid="method-delivery" />
+              Delivery{canDeliver ? ` (+$${vehicle!.location!.delivery_fee})` : ""}
+            </label>
+          </div>
+          {vehicle && !canDeliver && <span className="text-[11px] text-text-muted-wabs">This vehicle&apos;s location doesn&apos;t offer delivery.</span>}
+        </Field>
       </section>
 
-      <section className="bg-white border border-gray-200 rounded-lg p-6 grid grid-cols-1 md:grid-cols-2 gap-4" key={customerId}>
+      {extras.length > 0 && (
+        <section className="bg-white border border-gray-200 rounded-lg p-6" data-testid="manual-extras">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted-wabs mb-4">Extras</h2>
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {extras.map(x => (
+              <li key={x.id} className="flex items-center justify-between gap-3 border border-gray-100 rounded px-3 py-2">
+                <span className="text-sm text-navy">
+                  {x.name}
+                  <span className="text-text-muted-wabs"> · ${x.price}{x.unit === "per_day" ? "/day" : ""}</span>
+                </span>
+                <input
+                  type="number" min={0} max={10} inputMode="numeric" aria-label={`${x.name} quantity`}
+                  value={qty[x.id] ?? 0}
+                  onChange={e => setQty(q => ({ ...q, [x.id]: Math.max(0, Math.min(10, Math.trunc(Number(e.target.value) || 0))) }))}
+                  className="w-16 border border-gray-300 rounded px-2 py-1 text-sm text-navy text-right"
+                />
+              </li>
+            ))}
+          </ul>
+          {bad("extras") && <p className="text-red-600 text-sm mt-2">{error?.message}</p>}
+        </section>
+      )}
+
+      <section className="bg-white border border-gray-200 rounded-lg p-6 grid grid-cols-1 md:grid-cols-2 gap-4" key={customer?.id ?? "none"}>
         <h2 className="md:col-span-2 text-sm font-semibold uppercase tracking-wider text-text-muted-wabs">Driver</h2>
         <Field label="Full name" error={bad("driver_name")}>
-          <input name="driver_name" required defaultValue={customer ? [customer.first_name, customer.last_name].filter(Boolean).join(" ") : ""} className={inputCls} />
+          <input name="driver_name" required defaultValue={customer && (customer.first_name || customer.last_name) ? customerName(customer) : ""} className={inputCls} />
         </Field>
         <Field label="Email" error={bad("driver_email")}>
           <input name="driver_email" type="email" required defaultValue={customer?.email ?? ""} className={inputCls} />
@@ -135,7 +189,7 @@ export function ManualBookingForm({
           </select>
         </Field>
         <p className="md:col-span-2 text-xs text-text-muted-wabs">
-          The price is calculated from current rates, tax and the selected protection plan, the same way as online checkout.
+          The price is calculated from current rates, tax, protection, extras and delivery, the same way as online checkout.
           You&apos;ll see the breakdown on the next page.
         </p>
       </section>

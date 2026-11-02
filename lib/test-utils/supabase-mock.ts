@@ -18,6 +18,9 @@ export type QueryResult = { data: unknown; error: unknown };
 export type MockSupabase = {
   // table-level setup
   setTableResponse(table: string, response: QueryResult): void;
+  // One-shot responses consumed in order (one per .from(table) call) before
+  // falling back to setTableResponse. For actions that read a table twice.
+  queueTableResponse(table: string, response: QueryResult): void;
   setRpcResponse(fn: string, response: { data?: unknown; error?: unknown }): void;
   setUser(user: { id: string; email?: string } | null): void;
 
@@ -27,11 +30,14 @@ export type MockSupabase = {
     rpc: ReturnType<typeof vi.fn>;
     auth: {
       getUser: ReturnType<typeof vi.fn>;
+      admin: { updateUserById: ReturnType<typeof vi.fn> };
     };
     storage: {
       from: ReturnType<typeof vi.fn>;
     };
   };
+  setAdminResponse(response: { data?: unknown; error?: unknown }): void;
+  adminCalls: Array<{ op: string; args: unknown[] }>;
   setStorageResponse(op: "upload" | "remove" | "createSignedUrls" | "list", response: { data?: unknown; error?: unknown }): void;
   storageCalls: Array<{ bucket: string; op: string; args: unknown[] }>;
 
@@ -45,10 +51,13 @@ export type MockSupabase = {
 
 export function createMockSupabase(): MockSupabase {
   const tableResponses = new Map<string, QueryResult>();
+  const queuedResponses = new Map<string, QueryResult[]>();
   const rpcResponses = new Map<string, { data?: unknown; error?: unknown }>();
   let currentUser: { id: string; email?: string } | null = null;
   const storageResponses = new Map<string, { data?: unknown; error?: unknown }>();
   const storageCalls: Array<{ bucket: string; op: string; args: unknown[] }> = [];
+  const adminCalls: Array<{ op: string; args: unknown[] }> = [];
+  let adminResponse: { data?: unknown; error?: unknown } = { data: { user: {} }, error: null };
 
   const state: Pick<MockSupabase, "fromCalls" | "insertedRows" | "updatedRows" | "deletedTables" | "rpcCalls"> = {
     fromCalls: [],
@@ -63,7 +72,9 @@ export function createMockSupabase(): MockSupabase {
   // tests consume this through the module mock, not directly.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function buildBuilder(table: string): any {
-    const response: QueryResult = tableResponses.get(table) ?? { data: null, error: null };
+    const queued = queuedResponses.get(table);
+    const response: QueryResult = (queued && queued.length ? queued.shift() : undefined)
+      ?? tableResponses.get(table) ?? { data: null, error: null };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const builder: any = {};
 
@@ -118,6 +129,12 @@ export function createMockSupabase(): MockSupabase {
       getUser: vi.fn(() =>
         Promise.resolve({ data: { user: currentUser }, error: null })
       ),
+      admin: {
+        updateUserById: vi.fn((...args: unknown[]) => {
+          adminCalls.push({ op: "updateUserById", args });
+          return Promise.resolve({ data: adminResponse.data ?? null, error: adminResponse.error ?? null });
+        }),
+      },
     },
     storage: {
       from: vi.fn((bucket: string) => {
@@ -147,6 +164,9 @@ export function createMockSupabase(): MockSupabase {
     setTableResponse(table, response) {
       tableResponses.set(table, response);
     },
+    queueTableResponse(table, response) {
+      queuedResponses.set(table, [...(queuedResponses.get(table) ?? []), response]);
+    },
     setRpcResponse(fn, response) {
       rpcResponses.set(fn, response);
     },
@@ -157,5 +177,9 @@ export function createMockSupabase(): MockSupabase {
       storageResponses.set(op, response);
     },
     storageCalls,
+    setAdminResponse(response) {
+      adminResponse = response;
+    },
+    adminCalls,
   };
 }

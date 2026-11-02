@@ -61,11 +61,48 @@ describe("setCustomerFlag", () => {
 });
 
 describe("setCustomerActive", () => {
-  it("deactivates", async () => {
-    asStaff("admin");
+  // requireStaff reads the caller's role, then the action reads the target's.
+  function roles(caller: string, target: string | null) {
+    supabaseStub.setUser({ id: STAFF_ID });
+    supabaseStub.queueTableResponse("roles", { data: { role: caller }, error: null });
+    supabaseStub.queueTableResponse("roles", { data: target ? { role: target } : null, error: null });
+  }
+
+  it("deactivates: bans sign-in, marks profile inactive, audits", async () => {
+    roles("manager", "customer");
     expect(await setCustomerActive(fd({ customer_id: CUSTOMER_ID, is_active: "false" }))).toEqual({ success: true });
+    expect(supabaseStub.adminCalls).toEqual([{ op: "updateUserById", args: [CUSTOMER_ID, { ban_duration: "876000h" }] }]);
     expect(supabaseStub.updatedRows["profiles"][0]).toMatchObject({ is_active: false });
-    expect(supabaseStub.insertedRows["audit_logs"][0]).toMatchObject({ action: "customer.deactivate" });
+    expect(supabaseStub.insertedRows["audit_logs"][0]).toMatchObject({ action: "customer.deactivate", diff: { sign_in: "banned" } });
+  });
+
+  it("reactivates: lifts the ban", async () => {
+    roles("admin", "customer");
+    expect(await setCustomerActive(fd({ customer_id: CUSTOMER_ID, is_active: "true" }))).toEqual({ success: true });
+    expect(supabaseStub.adminCalls[0].args).toEqual([CUSTOMER_ID, { ban_duration: "none" }]);
+    expect(supabaseStub.updatedRows["profiles"][0]).toMatchObject({ is_active: true });
+  });
+
+  it("refuses to deactivate staff accounts", async () => {
+    roles("manager", "admin");
+    expect(await setCustomerActive(fd({ customer_id: CUSTOMER_ID, is_active: "false" }))).toEqual({ error: "Customer not found" });
+    expect(supabaseStub.adminCalls).toEqual([]);
+    expect(supabaseStub.updatedRows["profiles"]).toBeUndefined();
+  });
+
+  it("refuses to deactivate yourself", async () => {
+    roles("admin", "admin");
+    const r = await setCustomerActive(fd({ customer_id: STAFF_ID, is_active: "false" }));
+    expect(r.error).toMatch(/your own account/);
+    expect(supabaseStub.adminCalls).toEqual([]);
+  });
+
+  it("leaves the profile alone if the auth ban fails", async () => {
+    roles("manager", "customer");
+    supabaseStub.setAdminResponse({ error: { message: "User not found" } });
+    const r = await setCustomerActive(fd({ customer_id: CUSTOMER_ID, is_active: "false" }));
+    expect(r.error).toMatch(/sign-in access: User not found/);
+    expect(supabaseStub.updatedRows["profiles"]).toBeUndefined();
   });
 });
 
