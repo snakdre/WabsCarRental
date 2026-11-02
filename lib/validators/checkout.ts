@@ -1,12 +1,13 @@
 import { z } from "zod";
+import { uuidLike } from "@/lib/validators/shared";
 
 // Step 1 — dates
 const _datesObject = z.object({
-  vehicle_id: z.string().uuid(),
+  vehicle_id: uuidLike,
   pickup_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid pickup date"),
   return_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid return date"),
   pickup_method: z.enum(["pickup", "delivery"]),
-  pickup_location_id: z.string().uuid().nullable().optional(),
+  pickup_location_id: uuidLike.nullable().optional(),
 });
 export const datesSchema = _datesObject.refine((d) => d.return_date > d.pickup_date, {
   message: "Return date must be after pickup date",
@@ -26,9 +27,9 @@ export const driverSchema = z.object({
 
 // Step 3 — extras
 export const extrasSchema = z.object({
-  protection_plan_id: z.string().uuid().nullable().optional(),
+  protection_plan_id: uuidLike.nullable().optional(),
   extras: z.array(z.object({
-    extra_id: z.string().uuid(),
+    extra_id: uuidLike,
     quantity: z.number().int().positive(),
   })).default([]),
   promo_code: z.string().nullable().optional(),
