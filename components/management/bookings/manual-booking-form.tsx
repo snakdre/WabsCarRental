@@ -12,12 +12,25 @@ import { Button } from "@/components/ui/button";
 const inputCls =
   "w-full border border-gray-300 rounded px-3 py-2 text-sm text-navy focus:border-gold focus:outline-none bg-white";
 
-function Field({ label, error, children }: { label: string; error?: boolean; children: React.ReactNode }) {
+// `group` renders a fieldset instead of a <label>, for fields that contain
+// their own labels or several controls (nested labels misroute clicks).
+function Field({ label, error, group, children }: { label: string; error?: boolean; group?: boolean; children: React.ReactNode }) {
+  const caption = (
+    <span className={`block text-xs font-semibold uppercase tracking-wider mb-1 ${error ? "text-red-600" : "text-text-muted-wabs"}`}>
+      {label}
+    </span>
+  );
+  if (group) {
+    return (
+      <fieldset className="block min-w-0">
+        <legend className="contents">{caption}</legend>
+        {children}
+      </fieldset>
+    );
+  }
   return (
     <label className="block">
-      <span className={`block text-xs font-semibold uppercase tracking-wider mb-1 ${error ? "text-red-600" : "text-text-muted-wabs"}`}>
-        {label}
-      </span>
+      {caption}
       {children}
     </label>
   );
@@ -68,7 +81,7 @@ export function ManualBookingForm({
     <form onSubmit={onSubmit} className="space-y-6" data-testid="manual-booking-form">
       <section className="bg-white border border-gray-200 rounded-lg p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
         <h2 className="md:col-span-2 text-sm font-semibold uppercase tracking-wider text-text-muted-wabs">Customer &amp; vehicle</h2>
-        <Field label="Customer" error={bad("customer_id")}>
+        <Field label="Customer" error={bad("customer_id")} group>
           <CustomerPicker value={customer} onChange={setCustomer} invalid={bad("customer_id")} />
         </Field>
         <Field label="Vehicle" error={bad("vehicle_id")}>
@@ -95,7 +108,7 @@ export function ManualBookingForm({
             {plans.map(p => <option key={p.id} value={p.id}>{p.name} · ${p.daily_price}/day</option>)}
           </select>
         </Field>
-        <Field label="Handover" error={bad("pickup_location_id")}>
+        <Field label="Handover" error={bad("pickup_location_id")} group>
           <div className="flex flex-wrap gap-4 py-2 text-sm text-navy">
             <label className="inline-flex items-center gap-2">
               <input type="radio" name="method_choice" checked={effectiveMethod === "pickup"} onChange={() => setMethod("pickup")} />
